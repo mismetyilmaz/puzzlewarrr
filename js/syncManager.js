@@ -24,7 +24,7 @@ class SyncManager {
     this.onOppUpd  = onOpponentUpdate;
 
     this._listeners     = [];
-    this._writtenJoined = new Set();   // zaten yazılmış joined parçalar (tekrar yazma)
+    this._writtenJoined = new Map();
     this._opponentTeam  = team === 'A' ? 'B' : 'A';
   }
 
@@ -45,20 +45,23 @@ class SyncManager {
    * gameCanvas.js içindeki onProgress callback'inden tetiklenmeli.
    * @param {number} pieceIdx
    */
-  notifyJoined(pieceIdx) {
-    if (this._writtenJoined.has(pieceIdx)) return;
-    this._writtenJoined.add(pieceIdx);
-
-    const { FB } = window;
-    // Takım bazlı key: A_42, B_17 gibi — iki takım aynı DB yoluna yazıyor
-    const key = `${this.team}_${pieceIdx}`;
-    FB.set(FB.DB.roomPiece(this.roomId, key), {
-      joined: true,
-      team:   this.team,
-      idx:    pieceIdx,
-    }).catch(err => console.warn('sync write error:', err));
-  }
-
+notifyJoined(pieceIdx, onBoard = false) {
+  const { FB } = window;
+  const key    = `${this.team}_${pieceIdx}`;
+  
+  // onBoard=true ise güncelle (false→true geçiş)
+  const current = this._writtenJoined.get(pieceIdx);
+  if (current === 'board') return; // zaten en üst seviye
+  if (current === 'group' && !onBoard) return; // aynı seviye tekrar yazma
+  
+  this._writtenJoined.set(pieceIdx, onBoard ? 'board' : 'group');
+  
+  FB.set(FB.DB.roomPiece(this.roomId, key), {
+    team:    this.team,
+    idx:     pieceIdx,
+    onBoard, // true=tahtada(yeşil), false=dışarda gruplu(beyaz)
+  }).catch(err => console.warn('sync write error:', err));
+}
   /**
    * Tüm joined parçaları toplu yaz (oyun başlangıcında değil,
    * bağlantı kopup tekrar kurulunca kullanılır).
@@ -73,26 +76,24 @@ class SyncManager {
   // RAKİP joined DURUMUNU DİNLE
   // ─────────────────────────────────────────────
 
-  _listenOpponent() {
-    const { FB } = window;
-    const unsub = FB.onValue(FB.DB.roomPieces(this.roomId), snap => {
-      if (!snap.exists()) return;
+_listenOpponent() {
+  const { FB } = window;
+  const unsub = FB.onValue(FB.DB.roomPieces(this.roomId), snap => {
+    if (!snap.exists()) return;
+    const data       = snap.val();
+    const boardSet   = new Set(); // tahtada (yeşil)
+    const groupSet   = new Set(); // dışarda gruplu (beyaz)
 
-      const data      = snap.val();
-      const joinedSet = new Set();
+    for (const [key, val] of Object.entries(data)) {
+      if (val.team !== this._opponentTeam) continue;
+      if (val.onBoard) boardSet.add(val.idx);
+      else             groupSet.add(val.idx);
+    }
 
-      for (const [key, val] of Object.entries(data)) {
-        if (val.team === this._opponentTeam && val.joined) {
-          joinedSet.add(val.idx);
-        }
-      }
-
-      this.onOppUpd(joinedSet);
-    });
-
-    this._listeners.push(unsub);
-  }
-
+    this.onOppUpd(boardSet, groupSet);
+  });
+  this._listeners.push(unsub);
+}
   // ─────────────────────────────────────────────
   // TEMİZLE
   // ─────────────────────────────────────────────

@@ -239,27 +239,10 @@ html, body {
       </div>
     </div>
 
-    <!-- Oda kur paneli -->
-    <div class="panel visible" id="panel-create" style="margin-top:16px;">
-      <div>
-        <div class="card-title">Parça sayısı</div>
-        <div class="piece-row" id="create-piece-selector">
-          <div class="piece-opt" data-val="100">100</div>
-          <div class="piece-opt" data-val="200">200</div>
-          <div class="piece-opt active" data-val="500">500</div>
-          <div class="piece-opt" data-val="1000">1000</div>
-        </div>
-      </div>
-      <div style="margin-bottom: 12px;">
-  <div class="card-title" style="margin-bottom: 8px;">Görsel Seed</div>
-  <div style="display:flex; gap:8px; align-items:center;">
-    <input class="input" type="number" id="create-seed-input"
-           placeholder="Rastgele" style="flex:1;">
-    <button class="btn-icon" id="btn-random-seed-lobby"
-            style="background:var(--panel);border:1px solid var(--border);
-                   border-radius:8px;padding:10px 12px;color:var(--muted);
-                   cursor:pointer;font-size:16px;line-height:1;">🎲</button>
-  </div>
+ <!-- panel-create içindeki her şeyi bununla değiştir -->
+<div class="panel visible" id="panel-create" style="margin-top:16px;">
+  <button class="btn btn-primary" id="btn-create">Oda Oluştur</button>
+</div>
 </div>
       <button class="btn btn-primary" id="btn-create">Oda Oluştur</button>
     </div>
@@ -288,7 +271,39 @@ html, body {
     </div>
     <button class="copy-btn" id="btn-copy-code">Kopyala</button>
   </div>
+<!-- Ayarlar kartı — sadece host görür -->
+<div class="card" id="settings-card" style="display:none;">
+  <div class="card-title">Oyun Ayarları <span style="color:var(--accent);font-size:10px;">(sadece sen görürsün)</span></div>
+  
+  <div style="margin-bottom:14px;">
+    <div class="card-title" style="margin-bottom:8px;">Görsel Seed</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input class="input" type="number" id="lobby-seed-input" placeholder="Rastgele" style="flex:1;">
+      <button id="btn-random-seed-lobby"
+              style="background:var(--panel);border:1px solid var(--border);
+                     border-radius:8px;padding:10px 12px;color:var(--muted);
+                     cursor:pointer;font-size:16px;line-height:1;">🎲</button>
+    </div>
+  </div>
 
+  <div>
+    <div class="card-title" style="margin-bottom:8px;">Parça Sayısı</div>
+    <div class="piece-row" id="lobby-piece-selector">
+      <div class="piece-opt" data-val="100">100</div>
+      <div class="piece-opt" data-val="200">200</div>
+      <div class="piece-opt active" data-val="500">500</div>
+      <div class="piece-opt" data-val="1000">1000</div>
+    </div>
+  </div>
+</div>
+
+<!-- Ayarlar bilgi kartı — host olmayan oyunculara -->
+<div class="card" id="settings-waiting-card" style="display:none;">
+  <div class="card-title">Oyun Ayarları</div>
+  <div id="settings-display" style="color:var(--muted);font-size:13px;line-height:1.8;">
+    Ayarlar host tarafından belirleniyor…
+  </div>
+</div>
   <!-- Oyuncu grid -->
   <div class="players-grid">
     <div class="team-col team-a">
@@ -349,6 +364,7 @@ html, body {
 let lobby        = null;
 let myReady      = false;
 let selectedPieces = 500;
+
 let currentMode  = 'create';
 let isCreator    = false;
 // Seed başlangıç değeri
@@ -427,7 +443,27 @@ function waitFB() {
 window.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem('pw_name');
   if (saved) document.getElementById('name-input').value = saved;
+// Seed input
+document.getElementById('lobby-seed-input').value = createSeed;
+document.getElementById('btn-random-seed-lobby').onclick = () => {
+  createSeed = Math.floor(Math.random() * 999999) + 1;
+  document.getElementById('lobby-seed-input').value = createSeed;
+  pushSettings(); // Firebase'e yaz
+};
+document.getElementById('lobby-seed-input').addEventListener('input', e => {
+  createSeed = parseInt(e.target.value) || createSeed;
+  pushSettings();
+});
 
+// Parça seçici
+document.querySelectorAll('#lobby-piece-selector .piece-opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('#lobby-piece-selector .piece-opt').forEach(o => o.classList.remove('active'));
+    opt.classList.add('active');
+    selectedPieces = parseInt(opt.dataset.val);
+    pushSettings();
+  });
+});
   // Parça seçici
   document.querySelectorAll('#create-piece-selector .piece-opt').forEach(opt => {
     opt.addEventListener('click', () => {
@@ -459,7 +495,38 @@ function showLobbyError(msg) {
   document.getElementById('lobby-error').textContent = msg;
   setTimeout(() => document.getElementById('lobby-error').textContent = '', 3000);
 }
+async function pushSettings() {
+  if (!isCreator || !lobby) return;
+  await window.FB.update(window.FB.DB.roomMeta(lobby.roomId), {
+    seed:       createSeed,
+    pieceCount: selectedPieces,
+  });
+}
+function enterLobby(roomId) {
+  // ... mevcut kod ...
 
+  // Host ayar kartını göster, diğerleri bekleme kartını görsün
+  if (isCreator) {
+    document.getElementById('settings-card').style.display = 'block';
+    pushSettings(); // ilk değerleri yaz
+  } else {
+    document.getElementById('settings-waiting-card').style.display = 'block';
+  }
+
+  // Ayarları dinle (host olmayan için)
+  lobby.onMeta(meta => {
+    if (!isCreator && meta.seed && meta.pieceCount) {
+      document.getElementById('settings-display').innerHTML =
+        `Seed: <strong style="color:var(--text)">${meta.seed}</strong><br>
+         Parça: <strong style="color:var(--text)">${meta.pieceCount}</strong>`;
+      // Yerel değişkenleri güncelle (oyuna giderken kullanılıyor)
+      createSeed    = meta.seed;
+      selectedPieces = meta.pieceCount;
+    }
+    if (meta.status === 'countdown') startCountdown(meta);
+    if (meta.status === 'playing')   goToGame(meta);
+  });
+}
 // ── ODA OLUŞTUR ──
 document.getElementById('btn-create').addEventListener('click', async () => {
   await waitFB();
@@ -574,8 +641,10 @@ async function toggleReady() {
 // ── OYUNU BAŞLAT (oda sahibi) ──
 async function startGame() {
   if (!lobby) return;
-  try { await lobby.startGame(); }
-  catch (e) { showLobbyError(e.message); }
+  try {
+    await pushSettings(); // seed ve parça sayısını garantile
+    await lobby.startGame();
+  } catch (e) { showLobbyError(e.message); }
 }
 
 // ── GERİ SAYIM ──
@@ -608,18 +677,16 @@ function startCountdown(meta) {
 // ── OYUNA GEÇİŞ ──
 function goToGame(meta) {
   if (!lobby) return;
-  // Oyun parametrelerini URL'ye koy, game.html'de okuyacak
   const params = new URLSearchParams({
     roomId:     lobby.roomId,
     uid:        lobby.uid,
     team:       _getMyTeam(),
-    seed:       meta.seed,
-    pieceCount: meta.pieceCount,
+    seed:       meta.seed       || createSeed,
+    pieceCount: meta.pieceCount || selectedPieces,
     name:       lobby.displayName,
   });
   window.location.href = 'game.html?' + params.toString();
 }
-
 function _getMyTeam() {
   // Lobi ekranında takım bilgisi DOM'dan alınabilir
   // (Listener tetiklenince güncelleniyor zaten)

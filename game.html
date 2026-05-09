@@ -161,13 +161,44 @@ html, body {
 
   <canvas id="preview-img" width="100" height="100" title="Kaynak görsel"></canvas>
   <!-- Chat -->
+<!-- Chat toggle butonu (kapalıyken görünür) -->
+<div id="chat-bubble"
+     style="position:absolute;bottom:16px;right:16px;z-index:25;cursor:pointer;
+            width:44px;height:44px;border-radius:50%;
+            background:var(--surface);border:1px solid var(--border);
+            display:flex;align-items:center;justify-content:center;
+            font-size:20px;transition:all 0.2s;box-shadow:0 4px 16px rgba(0,0,0,0.4);"
+     onclick="toggleChat()" title="Sohbeti aç">
+  💬
+  <div id="chat-badge"
+       style="position:absolute;top:-4px;right:-4px;
+              background:#ff4444;color:#fff;
+              border-radius:50%;width:18px;height:18px;
+              font-size:10px;font-family:var(--mono);font-weight:700;
+              display:none;align-items:center;justify-content:center;">
+    0
+  </div>
+</div>
+
+<!-- Chat paneli (açıkken görünür) -->
 <div id="game-chat"
-     style="position:absolute;bottom:16px;right:16px;width:240px;z-index:20;
-            background:rgba(13,13,26,0.85);border:1px solid var(--border);
-            border-radius:12px;padding:12px;backdrop-filter:blur(8px);">
+     style="position:absolute;bottom:16px;right:16px;width:240px;z-index:24;
+            background:rgba(13,13,26,0.92);border:1px solid var(--border);
+            border-radius:12px;padding:12px;backdrop-filter:blur(8px);
+            display:none;flex-direction:column;gap:8px;">
+  <!-- Başlık + kapat -->
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <span style="font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Sohbet</span>
+    <button onclick="toggleChat()"
+            style="background:none;border:none;color:var(--muted);cursor:pointer;
+                   font-size:16px;padding:2px 6px;border-radius:4px;line-height:1;"
+            title="Kapat">✕</button>
+  </div>
+  <!-- Mesajlar -->
   <div id="game-chat-messages"
-       style="height:130px;overflow-y:auto;display:flex;flex-direction:column;
-              gap:5px;margin-bottom:8px;font-size:11px;"></div>
+       style="height:140px;overflow-y:auto;display:flex;flex-direction:column;
+              gap:5px;font-size:11px;"></div>
+  <!-- Input -->
   <div style="display:flex;gap:6px;">
     <input id="game-chat-input" placeholder="Mesaj…" maxlength="120"
            style="flex:1;background:var(--panel);border:1px solid var(--border);
@@ -175,7 +206,7 @@ html, body {
                   font-family:var(--mono);font-size:12px;outline:none;">
     <button id="game-chat-send"
             style="background:var(--accent);border:none;border-radius:6px;
-                   padding:7px 12px;color:#fff;cursor:pointer;font-size:12px;">↑</button>
+                   padding:7px 12px;color:#fff;cursor:pointer;font-size:14px;">↑</button>
   </div>
 </div>
   <div id="opp-complete-banner">Rakip tamamladı! 🏁</div>
@@ -214,7 +245,32 @@ if (!ROOM_ID || !MY_UID) {
 }
 // ── CHAT ──
 let chatListener = null;
+// ── CHAT TOGGLE ──
+let chatOpen       = false;
+let unreadCount    = 0;
 
+function toggleChat() {
+  chatOpen = !chatOpen;
+  document.getElementById('game-chat').style.display   = chatOpen ? 'flex' : 'none';
+  document.getElementById('chat-bubble').style.display = chatOpen ? 'none' : 'flex';
+  if (chatOpen) {
+    unreadCount = 0;
+    updateBadge();
+    // Scroll en alta
+    const list = document.getElementById('game-chat-messages');
+    if (list) list.scrollTop = list.scrollHeight;
+  }
+}
+
+function updateBadge() {
+  const badge = document.getElementById('chat-badge');
+  if (unreadCount > 0) {
+    badge.style.display  = 'flex';
+    badge.textContent    = unreadCount > 9 ? '9+' : unreadCount;
+  } else {
+    badge.style.display  = 'none';
+  }
+}
 function initChat(roomId) {
   const { FB } = window;
   const msgsRef = FB.ref(FB.db, `rooms/${roomId}/chat`);
@@ -318,15 +374,18 @@ await sleep(20);
 
   gameCanvas = new window.GameCanvas(cv, engine, {
     snapThreshold: Math.max(10, engine.dispW * 0.12),
-    onProgress: (joined, total) => {
-      document.getElementById('my-progress').textContent = `${joined} / ${total} parça`;
-      // Yeni joined parçaları sync et
-      if (syncMgr) {
-        engine.pieces.forEach(p => {
-          if (p.joined) syncMgr.notifyJoined(p.idx);
-        });
+  onProgress: (joined, total) => {
+  document.getElementById('my-progress').textContent = `${joined} / ${total} parça`;
+  if (syncMgr) {
+    engine.pieces.forEach(p => {
+      if (p.joined) {
+        syncMgr.notifyJoined(p.idx, true); // tahtada → yeşil
+      } else if (p.groupId !== null) {
+        syncMgr.notifyJoined(p.idx, false); // dışarda gruplu → beyaz
       }
-    },
+    });
+  }
+},
     onComplete: () => onComplete(true),
   });
 
@@ -342,15 +401,17 @@ await sleep(20);
   );
 
   // 5. SyncManager
-  syncMgr = new window.SyncManager(ROOM_ID, MY_UID, MY_TEAM, engine, joinedSet => {
-    oppView.update(joinedSet);
+syncMgr = new window.SyncManager(ROOM_ID, MY_UID, MY_TEAM, engine,
+  (boardSet, groupSet) => {
+    oppView.update(boardSet, groupSet);
     // Rakip tamamladı mı?
-    if (!oppDone && joinedSet.size >= engine.totalPieces) {
+    if (!oppDone && boardSet.size >= engine.totalPieces) {
       oppDone = true;
       document.getElementById('opp-complete-banner').style.display = 'block';
       setTimeout(() => document.getElementById('opp-complete-banner').style.display = 'none', 4000);
     }
-  });
+  }
+);
   syncMgr.start();
 
   // 6. Preview
