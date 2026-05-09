@@ -108,95 +108,63 @@ class GameCanvas {
   const boardW = e.cols * e.dispW;
   const boardH = e.rows * e.dispH;
 
-  // Dağıtılacak parçaları belirle
-  const targets = e.pieces.filter(p => onlyUnjoined ? !p.joined && p.groupId === null : true);
+  const targets = e.pieces.filter(p =>
+    onlyUnjoined ? (!p.joined && p.groupId === null) : true
+  );
+  if (targets.length === 0) return;
 
-  // Parça boyutu + boşluk
-  const cellW = e.pieces[0].canvasW + 6;
-  const cellH = e.pieces[0].canvasH + 6;
+  const cw  = e.pieces[0].canvasW + 3;
+  const ch  = e.pieces[0].canvasH + 3;
+  const gap = 8;
 
-  // Kaç sütun sığar hesapla (4 bölgeye göre değişir, genel bir grid için):
-  // Tahtanın soluna, sağına, üstüne, altına ayrı grid bölgeleri koy
-  const margin = Math.max(80, Math.min(boardW, boardH) * 0.12);
+  // Tahtanın etrafını saran dikdörtgen şerit — tek seferde tüm slotları üret
+  // Şerit genişliği: kaç parça sığıyorsa o kadar sıra
+  const bx = this.boardOffX;
+  const by = this.boardOffY;
 
-  // 4 bölge tanımla: her bölgenin başlangıç noktası ve kapasite
-  const regions = [
-    // Sol bölge
-    {
-      x0: this.boardOffX - margin,
-      y0: this.boardOffY,
-      dir: 'left',
-      cols: Math.max(1, Math.floor((this.boardOffX - margin) / cellW)),
-      rows: Math.max(1, Math.floor(boardH / cellH)),
-    },
-    // Sağ bölge
-    {
-      x0: this.boardOffX + boardW + margin,
-      y0: this.boardOffY,
-      dir: 'right',
-      cols: Math.max(1, Math.floor(2000 / cellW)), // dünya genişliği
-      rows: Math.max(1, Math.floor(boardH / cellH)),
-    },
-    // Üst bölge
-    {
-      x0: this.boardOffX,
-      y0: this.boardOffY - margin,
-      dir: 'top',
-      cols: Math.max(1, Math.floor(boardW / cellW)),
-      rows: Math.max(1, Math.floor((this.boardOffY - margin) / cellH)),
-    },
-    // Alt bölge
-    {
-      x0: this.boardOffX,
-      y0: this.boardOffY + boardH + margin,
-      dir: 'bottom',
-      cols: Math.max(1, Math.floor(boardW / cellW)),
-      rows: Math.max(1, Math.floor(2000 / cellH)),
-    },
-  ];
-
-  // Tüm slot pozisyonlarını üret (her bölgeden)
+  // Kaç sıra gerekiyor hesapla
+  const totalNeeded = targets.length;
   const slots = [];
-  for (const reg of regions) {
-    for (let r = 0; r < reg.rows; r++) {
-      for (let c = 0; c < reg.cols; c++) {
-        if (reg.dir === 'left') {
-          // Sağdan sola doldur
-          slots.push({
-            x: reg.x0 - (c + 1) * cellW,
-            y: reg.y0 + r * cellH,
-          });
-        } else if (reg.dir === 'right') {
-          slots.push({
-            x: reg.x0 + c * cellW,
-            y: reg.y0 + r * cellH,
-          });
-        } else if (reg.dir === 'top') {
-          slots.push({
-            x: reg.x0 + c * cellW,
-            y: reg.y0 - (r + 1) * cellH,
-          });
-        } else { // bottom
-          slots.push({
-            x: reg.x0 + c * cellW,
-            y: reg.y0 + r * cellH,
-          });
-        }
-      }
+  let ring = 0;
+
+  while (slots.length < totalNeeded && ring < 30) {
+    const pad   = gap + ring * (Math.max(cw, ch) + 2);
+    // Dış dikdörtgenin sol-üst ve sağ-alt köşesi
+    const x0    = bx - pad - cw;
+    const y0    = by - pad - ch;
+    const x1    = bx + boardW + pad;
+    const y1    = by + boardH + pad;
+
+    // Üst kenar: x0'dan x1'e kadar yatay
+    for (let x = x0; x <= x1; x += cw) {
+      slots.push({ x, y: y0 });
     }
+    // Sağ kenar: y0+ch'dan y1'e kadar dikey (üst köşe zaten eklendi)
+    for (let y = y0 + ch; y <= y1; y += ch) {
+      slots.push({ x: x1, y });
+    }
+    // Alt kenar: x1-cw'dan x0'a kadar (sağ köşe zaten eklendi)
+    for (let x = x1 - cw; x >= x0; x -= cw) {
+      slots.push({ x, y: y1 });
+    }
+    // Sol kenar: y1-ch'dan y0+ch'a kadar (iki köşe zaten eklendi)
+    for (let y = y1 - ch; y >= y0 + ch; y -= ch) {
+      slots.push({ x: x0, y });
+    }
+
+    ring++;
   }
 
-  // Slotları karıştır (seed'li)
+  // Karıştır
   for (let i = slots.length - 1; i > 0; i--) {
     const j = Math.floor(rng.next() * (i + 1));
     [slots[i], slots[j]] = [slots[j], slots[i]];
   }
 
-  // Parçaları slotlara yerleştir
   targets.forEach((p, i) => {
-    const slot = slots[i % slots.length];
-    p.x = slot.x;
-    p.y = slot.y;
+    const s = slots[i % slots.length];
+    p.x = s.x;
+    p.y = s.y;
   });
 }
   /** Public: joined olmayan parçaları yeniden dağıt */

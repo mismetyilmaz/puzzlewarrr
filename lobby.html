@@ -208,6 +208,7 @@ html, body {
 .countdown-label {
   font-size: 14px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase;
 }
+
 /* Hata mesajı */
 .error-msg {
   color: var(--red); font-size: 12px; letter-spacing: 1px;
@@ -249,6 +250,17 @@ html, body {
           <div class="piece-opt" data-val="1000">1000</div>
         </div>
       </div>
+      <div style="margin-bottom: 12px;">
+  <div class="card-title" style="margin-bottom: 8px;">Görsel Seed</div>
+  <div style="display:flex; gap:8px; align-items:center;">
+    <input class="input" type="number" id="create-seed-input"
+           placeholder="Rastgele" style="flex:1;">
+    <button class="btn-icon" id="btn-random-seed-lobby"
+            style="background:var(--panel);border:1px solid var(--border);
+                   border-radius:8px;padding:10px 12px;color:var(--muted);
+                   cursor:pointer;font-size:16px;line-height:1;">🎲</button>
+  </div>
+</div>
       <button class="btn btn-primary" id="btn-create">Oda Oluştur</button>
     </div>
 
@@ -302,7 +314,22 @@ html, body {
       ▶ Başlat
     </button>
   </div>
-
+<!-- Chat -->
+<div class="card" id="lobby-chat-card" style="display:none;">
+  <div class="card-title">Sohbet</div>
+  <div id="chat-messages"
+       style="height:160px;overflow-y:auto;display:flex;flex-direction:column;
+              gap:6px;margin-bottom:10px;padding:4px 0;">
+  </div>
+  <div style="display:flex;gap:8px;">
+    <input class="input" id="chat-input" placeholder="Mesaj yaz…" maxlength="120"
+           style="flex:1;">
+    <button class="btn-icon" id="btn-chat-send"
+            style="background:var(--accent);border:none;border-radius:8px;
+                   padding:10px 14px;color:#fff;cursor:pointer;font-family:var(--mono);
+                   font-size:13px;">Gönder</button>
+  </div>
+</div>
   <div class="error-msg" id="lobby-error"></div>
 
   <button class="btn btn-secondary" onclick="leaveAndGoBack()">← Çık</button>
@@ -324,7 +351,68 @@ let myReady      = false;
 let selectedPieces = 500;
 let currentMode  = 'create';
 let isCreator    = false;
+// Seed başlangıç değeri
+let createSeed = Math.floor(Math.random() * 999999) + 1;
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('create-seed-input').value = createSeed;
+  document.getElementById('btn-random-seed-lobby').onclick = () => {
+    createSeed = Math.floor(Math.random() * 999999) + 1;
+    document.getElementById('create-seed-input').value = createSeed;
+  };
+  document.getElementById('create-seed-input').addEventListener('input', e => {
+    createSeed = parseInt(e.target.value) || createSeed;
+  });
+  // ... mevcut DOMContentLoaded içeriği
+});
+// ── CHAT ──
+let chatListener = null;
 
+function initChat(roomId) {
+  const { FB } = window;
+  const msgsRef = FB.ref(FB.db, `rooms/${roomId}/chat`);
+
+  // Gönder
+  function sendMsg(inputId) {
+    const input = document.getElementById(inputId);
+    const text  = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    FB.push(msgsRef, {
+      uid:  lobby?.uid || 'anon',
+name: lobby?.displayName || 'Oyuncu',
+      text,
+      t:    Date.now(),
+    });
+  }
+
+  // Dinle
+  chatListener = FB.onValue(msgsRef, snap => {
+    if (!snap.exists()) return;
+    const msgs   = Object.values(snap.val()).sort((a, b) => a.t - b.t).slice(-50);
+    // lobby veya game?
+    const listId = document.getElementById('chat-messages') ? 'chat-messages' : 'game-chat-messages';
+    const list   = document.getElementById(listId);
+    if (!list) return;
+    list.innerHTML = msgs.map(m => `
+      <div style="line-height:1.4;">
+        <span style="color:var(--accent);font-size:10px;">${escHtml(m.name)}</span>
+        <span style="color:var(--muted);font-size:11px;margin-left:4px;">${escHtml(m.text)}</span>
+      </div>`).join('');
+    list.scrollTop = list.scrollHeight;
+  });
+
+  // Butonlar
+  const sendBtn  = document.getElementById('btn-chat-send') || document.getElementById('game-chat-send');
+  const inputId  = document.getElementById('chat-input') ? 'chat-input' : 'game-chat-input';
+  if (sendBtn) sendBtn.onclick = () => sendMsg(inputId);
+  document.getElementById(inputId)?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendMsg(inputId);
+  });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 // firebase-config modülü yüklenince window.FB hazır olur
 // Küçük bir polling ile bekleyelim
 function waitFB() {
@@ -381,9 +469,10 @@ document.getElementById('btn-create').addEventListener('click', async () => {
     lobby     = new LobbyManager();
     isCreator = true;
     const roomId = await lobby.createRoom({
-      displayName: getName(),
-      pieceCount:  selectedPieces,
-    });
+  displayName: getName(),
+  pieceCount:  selectedPieces,
+  seed:        createSeed,   // ← bunu ekle
+});
     enterLobby(roomId);
   } catch (e) {
     showEntryError(e.message || 'Bağlantı hatası.');
@@ -426,6 +515,9 @@ function enterLobby(roomId) {
     if (meta.status === 'countdown') startCountdown(meta);
     if (meta.status === 'playing')   goToGame(meta);
   });
+  // Chat'i göster ve başlat
+document.getElementById('lobby-chat-card').style.display = 'block';
+initChat(roomId);
 }
 
 // ── OYUNCU LİSTESİ RENDER ──
