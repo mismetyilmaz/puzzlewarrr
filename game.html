@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PuzzleWar</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #0d0d1a; --surface: #13132a; --panel: #1a1a35;
+  --border:  rgba(120,120,255,0.15); --accent: #5c6bff; --accent2: #a66fff;
+  --green:   #3ddc84; --text: #e8e8f0; --muted: rgba(232,232,240,0.45);
+  --mono:    'Space Mono', monospace; --display: 'Syne', sans-serif;
+}
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg); color: var(--text);
+  font-family: var(--mono); overflow: hidden;
+  user-select: none; touch-action: none;
+  -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+}
+/* Yükleme */
+#screen-loading {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+  background: var(--bg); z-index: 90;
+}
+.loading-title { font-family: var(--display); font-size: 22px; font-weight: 700; }
+.loading-bar-outer { width: 320px; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+.loading-bar-inner {
+  height: 100%; width: 0;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 3px; transition: width 0.3s ease;
+}
+.loading-status { font-size: 12px; color: var(--muted); letter-spacing: 1px; }
+/* Oyun */
+#screen-game { position: fixed; inset: 0; display: none; }
+#screen-game.visible { display: block; }
+#game-canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; display: block; }
+#game-canvas:active { cursor: grabbing; }
+/* HUD */
+#hud {
+  position: absolute; top: 16px; right: 16px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+  pointer-events: none; z-index: 20;
+}
+#timer-display {
+  font-family: var(--mono); font-size: 22px; font-weight: 700;
+  color: var(--text); letter-spacing: 2px;
+  text-shadow: 0 0 20px rgba(92,107,255,0.5);
+}
+#progress-display { font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+/* Rakip minimap */
+#opponent-wrap {
+  position: absolute; top: 16px; right: 16px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+  z-index: 20; pointer-events: none;
+}
+#opponent-canvas {
+  width: 150px; height: 150px;
+  border-radius: 10px; border: 1px solid var(--border);
+  image-rendering: pixelated;
+}
+#opponent-label {
+  font-size: 10px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase;
+}
+#my-progress {
+  font-size: 11px; color: var(--muted); letter-spacing: 1px; text-align: right;
+}
+/* Sol butonlar */
+#btn-back {
+  position: absolute; top: 14px; left: 14px;
+  background: rgba(13,13,26,0.8); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 14px;
+  color: var(--muted); font-family: var(--mono); font-size: 12px;
+  cursor: pointer; transition: all 0.15s; z-index: 20; pointer-events: all;
+}
+#btn-back:hover { color: var(--text); border-color: var(--accent); }
+#game-actions {
+  position: absolute; top: 52px; left: 14px;
+  display: flex; gap: 8px; z-index: 20; pointer-events: all;
+}
+.btn-action {
+  background: rgba(13,13,26,0.82); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 13px;
+  color: var(--muted); font-family: var(--mono); font-size: 12px;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap; backdrop-filter: blur(6px);
+}
+.btn-action:hover { color: var(--text); border-color: var(--accent); background: rgba(92,107,255,0.12); }
+/* Preview */
+#preview-img {
+  position: absolute; bottom: 16px; left: 14px;
+  width: 100px; height: 100px; border-radius: 10px;
+  border: 1px solid var(--border); opacity: 0.65;
+  cursor: pointer; transition: all 0.2s; z-index: 20;
+}
+#preview-img:hover { opacity: 1; transform: scale(1.05); }
+/* Tamamlama */
+#screen-complete {
+  position: fixed; inset: 0; display: none;
+  flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+  background: rgba(13,13,26,0.93); backdrop-filter: blur(12px); z-index: 200;
+}
+#screen-complete.visible { display: flex; }
+.complete-title {
+  font-family: var(--display); font-size: clamp(32px,6vw,60px); font-weight: 800;
+  background: linear-gradient(135deg, var(--green), var(--accent));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  animation: celebrate 0.6s ease-out;
+}
+@keyframes celebrate { 0%{transform:scale(0.6);opacity:0} 70%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
+.complete-time { font-size: 17px; color: var(--muted); letter-spacing: 2px; }
+.complete-time span { color: var(--green); font-weight: 700; }
+.btn-again {
+  background: linear-gradient(135deg, var(--green), #2aa86b);
+  border: none; border-radius: 12px; padding: 13px 32px;
+  color: #0d1a10; font-family: var(--display); font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-again:hover { transform: translateY(-2px); filter: brightness(1.1); }
+/* Confetti */
+#confetti-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 199; display: none; }
+/* Rakip tamamladı banner */
+#opp-complete-banner {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: rgba(255,92,92,0.15); border: 1px solid rgba(255,92,92,0.4);
+  border-radius: 14px; padding: 18px 32px;
+  font-family: var(--display); font-size: 20px; font-weight: 700;
+  color: #ff8080; text-align: center; display: none; z-index: 30; pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<!-- YÜKLEME -->
+<div id="screen-loading">
+  <div class="loading-title">Puzzle yükleniyor…</div>
+  <div class="loading-bar-outer"><div class="loading-bar-inner" id="loading-bar"></div></div>
+  <div class="loading-status" id="loading-status">Görsel üretiliyor…</div>
+</div>
+
+<!-- OYUN -->
+<div id="screen-game">
+  <canvas id="game-canvas"></canvas>
+
+  <button id="btn-back">← Lobiye Dön</button>
+
+  <div id="game-actions">
+    <button class="btn-action" id="btn-scatter">↺ Dağıt</button>
+    <button class="btn-action" id="btn-center">⌂ Tahta</button>
+  </div>
+
+  <!-- Rakip minimap (sağ üst) -->
+  <div id="opponent-wrap">
+    <div id="opponent-label">Rakip</div>
+    <canvas id="opponent-canvas" width="150" height="150"></canvas>
+    <div id="my-progress">0 / 0 parça</div>
+    <div id="timer-display">00:00</div>
+  </div>
+
+  <canvas id="preview-img" width="100" height="100" title="Kaynak görsel"></canvas>
+  <div id="opp-complete-banner">Rakip tamamladı! 🏁</div>
+</div>
+
+<!-- TAMAMLANDI -->
+<div id="screen-complete">
+  <div class="complete-title" id="complete-title">🎉 Tamamlandı!</div>
+  <div class="complete-time">Süre: <span id="final-time">—</span></div>
+  <button class="btn-again" id="btn-lobby">← Lobiye Dön</button>
+</div>
+
+<canvas id="confetti-canvas"></canvas>
+
+<!-- Firebase + modüller -->
+<script type="module" src="js/firebase-config.js"></script>
+<script src="js/imageGen.js"></script>
+<script src="js/puzzleEngine.js"></script>
+<script src="js/gameCanvas.js"></script>
+<script src="js/syncManager.js"></script>
+<script src="js/opponentView.js"></script>
+
+<script>
+// ── URL Parametrelerini oku ──
+const params     = new URLSearchParams(location.search);
+const ROOM_ID    = params.get('roomId');
+const MY_UID     = params.get('uid');
+const MY_TEAM    = params.get('team') || 'A';
+const SEED       = parseInt(params.get('seed'))       || 12345;
+const PIECE_COUNT= parseInt(params.get('pieceCount')) || 500;
+const MY_NAME    = params.get('name') || 'Oyuncu';
+
+// Parametre yoksa lobiye gönder
+if (!ROOM_ID || !MY_UID) {
+  window.location.href = 'lobby.html';
+}
+
+let gameCanvas   = null;
+let syncMgr      = null;
+let oppView      = null;
+let timerIv      = null;
+let startTime    = null;
+let confettiAF   = null;
+let oppDone      = false;
+
+function waitFB() {
+  return new Promise(res => {
+    const t = setInterval(() => { if (window.FB) { clearInterval(t); res(); } }, 50);
+  });
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function setLoading(txt, pct) {
+  document.getElementById('loading-status').textContent = txt;
+  document.getElementById('loading-bar').style.width = pct + '%';
+}
+function formatTime(ms) {
+  const s = Math.floor(ms/1000), m = Math.floor(s/60);
+  return `${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+
+// ── ANA BAŞLATMA ──
+async function init() {
+  await waitFB();
+  setLoading('Görsel üretiliyor…', 10);
+  await sleep(20);
+
+  // 1. Görsel
+  const srcCanvas = window.ImageGen.generateImage(SEED, 2400);
+
+  setLoading('Parçalar kesiliyor…', 40);
+  await sleep(20);
+
+  // 2. Engine
+  const gameW  = window.innerWidth;
+  const gameH  = window.innerHeight;
+  const engine = new window.PuzzleEngine(srcCanvas, PIECE_COUNT, SEED);
+  const scaleX = (gameW * 0.70) / (engine.cols * engine.pieceW);
+  const scaleY = (gameH * 0.70) / (engine.rows * engine.pieceH);
+  const scale  = Math.min(scaleX, scaleY, 0.8);
+
+  engine.buildPieces(scale);
+setLoading('Parçalar hazır…', 75);
+await sleep(20);
+
+  setLoading('Oyun başlatılıyor…', 80);
+  await sleep(20);
+
+  // 3. Canvas
+  const cv = document.getElementById('game-canvas');
+  cv.width  = gameW;
+  cv.height = gameH;
+
+  gameCanvas = new window.GameCanvas(cv, engine, {
+    snapThreshold: Math.max(10, engine.dispW * 0.12),
+    onProgress: (joined, total) => {
+      document.getElementById('my-progress').textContent = `${joined} / ${total} parça`;
+      // Yeni joined parçaları sync et
+      if (syncMgr) {
+        engine.pieces.forEach(p => {
+          if (p.joined) syncMgr.notifyJoined(p.idx);
+        });
+      }
+    },
+    onComplete: () => onComplete(true),
+  });
+
+  document.getElementById('btn-scatter').onclick = () => gameCanvas.redistributePieces();
+  document.getElementById('btn-center').onclick  = () => gameCanvas.centerBoard();
+  document.getElementById('btn-back').onclick    = () => {
+    if (confirm('Lobiye dönmek istiyor musun?')) goToLobby();
+  };
+
+  // 4. Rakip minimap
+  oppView = new window.OpponentView(
+    document.getElementById('opponent-canvas'), engine
+  );
+
+  // 5. SyncManager
+  syncMgr = new window.SyncManager(ROOM_ID, MY_UID, MY_TEAM, engine, joinedSet => {
+    oppView.update(joinedSet);
+    // Rakip tamamladı mı?
+    if (!oppDone && joinedSet.size >= engine.totalPieces) {
+      oppDone = true;
+      document.getElementById('opp-complete-banner').style.display = 'block';
+      setTimeout(() => document.getElementById('opp-complete-banner').style.display = 'none', 4000);
+    }
+  });
+  syncMgr.start();
+
+  // 6. Preview
+  const pv  = document.getElementById('preview-img');
+  const pctx= pv.getContext('2d');
+  pctx.drawImage(srcCanvas, 0, 0, 100, 100);
+
+  setLoading('Hazır!', 100);
+  await sleep(150);
+
+  // 7. Geçiş
+  document.getElementById('screen-loading').style.display = 'none';
+  document.getElementById('screen-game').classList.add('visible');
+  gameCanvas.start();
+
+  // 8. Zamanlayıcı
+  startTime = Date.now();
+  timerIv   = setInterval(() => {
+    document.getElementById('timer-display').textContent = formatTime(Date.now() - startTime);
+  }, 1000);
+}
+
+// ── TAMAMLAMA ──
+function onComplete(isWinner) {
+  clearInterval(timerIv);
+  if (syncMgr) syncMgr.dispose();
+  const elapsed = Date.now() - startTime;
+  document.getElementById('final-time').textContent = formatTime(elapsed);
+  document.getElementById('complete-title').textContent = isWinner ? '🎉 Kazandın!' : '😔 Rakip bitirdi…';
+  document.getElementById('screen-complete').classList.add('visible');
+  launchConfetti();
+}
+
+document.getElementById('btn-lobby').addEventListener('click', goToLobby);
+
+function goToLobby() {
+  if (gameCanvas) gameCanvas.stop();
+  if (syncMgr)    syncMgr.dispose();
+  clearInterval(timerIv);
+  window.location.href = 'lobby.html';
+}
+
+// ── CONFETTİ ──
+function launchConfetti() {
+  const cv  = document.getElementById('confetti-canvas');
+  const ctx = cv.getContext('2d');
+  cv.width  = window.innerWidth; cv.height = window.innerHeight;
+  cv.style.display = 'block';
+  const ps  = Array.from({length:100}, () => ({
+    x: Math.random()*cv.width, y: -20-Math.random()*200,
+    vx:(Math.random()-.5)*4, vy:2+Math.random()*4,
+    size:5+Math.random()*7, rot:Math.random()*Math.PI*2,
+    vr:(Math.random()-.5)*.2,
+    color:['#5c6bff','#a66fff','#3ddc84','#ffdd57','#ff6b6b'][Math.floor(Math.random()*5)],
+    dead:false,
+  }));
+  function tick() {
+    ctx.clearRect(0,0,cv.width,cv.height);
+    let alive=false;
+    for(const p of ps) {
+      if(p.dead)continue; p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr; p.vy+=.08;
+      if(p.y>cv.height+20){p.dead=true;continue;} alive=true;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+      ctx.fillStyle=p.color; ctx.fillRect(-p.size/2,-p.size/4,p.size,p.size/2);
+      ctx.restore();
+    }
+    if(alive) confettiAF=requestAnimationFrame(tick); else cv.style.display='none';
+  }
+  confettiAF=requestAnimationFrame(tick);
+}
+
+// Resize
+window.addEventListener('resize', () => {
+  if (gameCanvas) {
+    const c = document.getElementById('game-canvas');
+    c.width=window.innerWidth; c.height=window.innerHeight;
+    gameCanvas.resize(c.width, c.height);
+  }
+});
+
+// Başlat
+init().catch(err => {
+  document.getElementById('loading-status').textContent = 'Hata: ' + err.message;
+  console.error(err);
+});
+</script>
+</body>
+</html>

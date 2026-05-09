@@ -1,0 +1,2340 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PuzzleWar — Offline Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0d0d1a;
+    --surface: #13132a;
+    --panel:   #1a1a35;
+    --border:  rgba(120,120,255,0.15);
+    --accent:  #5c6bff;
+    --accent2: #a66fff;
+    --green:   #3ddc84;
+    --text:    #e8e8f0;
+    --muted:   rgba(232,232,240,0.45);
+    --mono:    'Space Mono', monospace;
+    --display: 'Syne', sans-serif;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── MENÜ EKRANI ── */
+  #screen-menu {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+
+  .menu-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 60%, rgba(92,107,255,0.18) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 50% at 80% 30%, rgba(166,111,255,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .menu-content {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 36px;
+    max-width: 480px; width: 90%;
+  }
+
+  .logo {
+    font-family: var(--display);
+    font-size: clamp(42px, 8vw, 72px);
+    font-weight: 800;
+    letter-spacing: -2px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+    animation: logoPulse 4s ease-in-out infinite;
+  }
+  @keyframes logoPulse {
+    0%,100% { filter: drop-shadow(0 0 20px rgba(92,107,255,0.4)); }
+    50%      { filter: drop-shadow(0 0 40px rgba(166,111,255,0.6)); }
+  }
+
+  .tagline {
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  .menu-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+    width: 100%;
+  }
+
+  .menu-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .seed-row {
+    display: flex; gap: 8px; align-items: center;
+  }
+
+  .seed-input {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .seed-input:focus { border-color: var(--accent); }
+
+  .btn-icon {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+  .btn-icon:hover { color: var(--text); border-color: var(--accent); }
+
+  .piece-selector {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .piece-opt {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .piece-opt:hover   { color: var(--text); border-color: var(--accent); }
+  .piece-opt.active  { color: var(--accent); border-color: var(--accent); background: rgba(92,107,255,0.1); }
+
+  .btn-start {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    color: #fff;
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .btn-start::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .btn-start:hover::after { opacity: 1; }
+  .btn-start:active { transform: scale(0.98); }
+
+  /* ── YÜKLEME EKRANI ── */
+  #screen-loading {
+    position: fixed; inset: 0;
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 24px;
+    background: var(--bg);
+    z-index: 90;
+  }
+  #screen-loading.visible { display: flex; }
+
+  .loading-title {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .loading-bar-outer {
+    width: 320px; height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px; overflow: hidden;
+  }
+  .loading-bar-inner {
+    height: 100%; width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+  .loading-status {
+    font-size: 12px; color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  /* ── OYUN EKRANI ── */
+  #screen-game {
+    position: fixed; inset: 0;
+    display: none;
+    z-index: 10;
+  }
+  #screen-game.visible { display: block; }
+
+  #game-canvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    cursor: grab;
+    display: block;
+  }
+  #game-canvas:active { cursor: grabbing; }
+
+  /* HUD üstü */
+  #hud {
+    position: absolute;
+    top: 16px; right: 16px;
+    display: flex; flex-direction: column;
+    align-items: flex-end; gap: 10px;
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  #timer-display {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px rgba(92,107,255,0.5);
+  }
+
+  #progress-display {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  #btn-menu-back {
+    position: absolute;
+    top: 14px; left: 14px;
+    background: rgba(13,13,26,0.8);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    z-index: 20;
+    pointer-events: all;
+  }
+  #btn-menu-back:hover { color: var(--text); border-color: var(--accent); }
+
+  /* ── TAMAMLANDI EKRANI ── */
+  #screen-complete {
+    position: fixed; inset: 0;
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 28px;
+    background: rgba(13,13,26,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 200;
+  }
+  #screen-complete.visible { display: flex; }
+
+  .complete-title {
+    font-family: var(--display);
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--green), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: celebrate 0.6s ease-out;
+  }
+  @keyframes celebrate {
+    0% { transform: scale(0.6); opacity: 0; }
+    70% { transform: scale(1.08); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .complete-time {
+    font-size: 18px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  .complete-time span {
+    color: var(--green);
+    font-weight: 700;
+  }
+
+  .btn-again {
+    background: linear-gradient(135deg, var(--green), #2aa86b);
+    border: none;
+    border-radius: 12px;
+    padding: 14px 36px;
+    color: #0d1a10;
+    font-family: var(--display);
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-again:hover { transform: translateY(-2px); filter: brightness(1.1); }
+
+  /* Confetti canvas */
+  #confetti-canvas {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 199;
+    display: none;
+  }
+
+  /* Preview penceresi (sağ alt, kaynak görsel) */
+  #preview-img {
+    position: absolute;
+    bottom: 16px; right: 16px;
+    width: 120px; height: 120px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    object-fit: cover;
+    opacity: 0.7;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 20;
+  }
+  #preview-img:hover { opacity: 1; transform: scale(1.05); }
+
+  /* Oyun içi butonlar (sol üst, menü butonunun altı) */
+  #game-actions {
+    position: absolute;
+    top: 52px; left: 14px;
+    display: flex; gap: 8px;
+    z-index: 20;
+    pointer-events: all;
+  }
+
+  .btn-action {
+    background: rgba(13,13,26,0.82);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 13px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    backdrop-filter: blur(6px);
+  }
+  .btn-action:hover {
+    color: var(--text);
+    border-color: var(--accent);
+    background: rgba(92,107,255,0.12);
+  }
+  .btn-action:active { transform: scale(0.96); }
+</style>
+</head>
+<body>
+
+<!-- MENÜ -->
+<div id="screen-menu">
+  <div class="menu-bg"></div>
+  <div class="menu-content">
+    <div class="logo">PuzzleWar</div>
+    <div class="tagline">Jigsaw yarışı — kimse yok, sadece sen</div>
+
+    <div class="menu-card">
+      <div class="menu-label">Görsel seed</div>
+      <div class="seed-row">
+        <input class="seed-input" type="number" id="seed-input" value="" placeholder="Rastgele">
+        <button class="btn-icon" id="btn-random-seed" title="Rastgele seed">🎲</button>
+      </div>
+    </div>
+
+    <div class="menu-card">
+      <div class="menu-label">Parça sayısı</div>
+      <div class="piece-selector" id="piece-selector">
+        <div class="piece-opt" data-val="100">100</div>
+        <div class="piece-opt" data-val="200">200</div>
+        <div class="piece-opt active" data-val="500">500</div>
+        <div class="piece-opt" data-val="1000">1000</div>
+      </div>
+    </div>
+
+    <button class="btn-start" id="btn-start">▶ BAŞLAT</button>
+  </div>
+</div>
+
+<!-- YÜKLEME -->
+<div id="screen-loading">
+  <div class="loading-title">Puzzle hazırlanıyor…</div>
+  <div class="loading-bar-outer"><div class="loading-bar-inner" id="loading-bar"></div></div>
+  <div class="loading-status" id="loading-status">Görsel üretiliyor…</div>
+</div>
+
+<!-- OYUN -->
+<div id="screen-game">
+  <canvas id="game-canvas"></canvas>
+
+  <button id="btn-menu-back">← Menü</button>
+
+  <div id="game-actions">
+    <button class="btn-action" id="btn-scatter" title="Joined olmayan parçaları yeniden dağıt">↺ Dağıt</button>
+    <button class="btn-action" id="btn-center"  title="Tahtayı ekran ortasına getir">⌂ Tahta</button>
+  </div>
+
+  <div id="hud">
+    <div id="timer-display">00:00</div>
+    <div id="progress-display">0 / 0 parça</div>
+  </div>
+
+  <canvas id="preview-img" width="120" height="120" title="Kaynak görsel"></canvas>
+</div>
+
+<!-- TAMAMLANDI -->
+<div id="screen-complete">
+  <div class="complete-title">🎉 Tamamlandı!</div>
+  <div class="complete-time">Süre: <span id="final-time">—</span></div>
+  <button class="btn-again" id="btn-again">Tekrar Oyna</button>
+</div>
+
+<canvas id="confetti-canvas"></canvas>
+
+<script>
+/**
+ * imageGen.js
+ * Seed tabanlı procedural görsel üretici.
+ * Her seed için aynı görseli üretir (deterministic).
+ * Çıktı: 2400×2400 px OffscreenCanvas veya Canvas element.
+ */
+
+class SeededRandom {
+  constructor(seed) {
+    this.seed = seed >>> 0;
+  }
+  next() {
+    this.seed ^= this.seed << 13;
+    this.seed ^= this.seed >> 17;
+    this.seed ^= this.seed << 5;
+    return ((this.seed >>> 0) / 4294967296);
+  }
+  range(min, max) { return min + this.next() * (max - min); }
+  int(min, max)   { return Math.floor(this.range(min, max + 1)); }
+  pick(arr)       { return arr[Math.floor(this.next() * arr.length)]; }
+}
+
+/** HSL → hex dönüşümü */
+function hsl(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  s = Math.max(0, Math.min(100, s));
+  l = Math.max(0, Math.min(100, l));
+  return `hsl(${h},${s}%,${l}%)`;
+}
+
+/**
+ * Verilen seed için renk paleti üretir.
+ * Triadic veya analogous renk teorisi kullanır.
+ */
+function generatePalette(rng) {
+  const strategy = rng.pick(['triadic', 'analogous', 'split-complementary', 'tetradic']);
+  const baseHue  = rng.range(0, 360);
+  const sat      = rng.range(55, 95);
+  const colors   = [];
+
+  if (strategy === 'triadic') {
+    colors.push(hsl(baseHue, sat, rng.range(30, 55)));
+    colors.push(hsl(baseHue + 120, sat, rng.range(30, 55)));
+    colors.push(hsl(baseHue + 240, sat, rng.range(30, 55)));
+    colors.push(hsl(baseHue + 60,  sat * 0.7, rng.range(55, 80)));
+    colors.push(hsl(baseHue + 180, sat * 0.8, rng.range(20, 45)));
+  } else if (strategy === 'analogous') {
+    for (let i = 0; i < 5; i++) {
+      colors.push(hsl(baseHue + i * 30, sat - i * 5, rng.range(25, 70)));
+    }
+  } else if (strategy === 'split-complementary') {
+    colors.push(hsl(baseHue, sat, rng.range(30, 50)));
+    colors.push(hsl(baseHue + 150, sat, rng.range(35, 55)));
+    colors.push(hsl(baseHue + 210, sat, rng.range(35, 55)));
+    colors.push(hsl(baseHue + 30,  sat * 0.6, rng.range(60, 80)));
+    colors.push(hsl(baseHue - 30,  sat * 0.6, rng.range(60, 80)));
+  } else { // tetradic
+    for (let i = 0; i < 4; i++) {
+      colors.push(hsl(baseHue + i * 90, sat, rng.range(30, 60)));
+    }
+    colors.push(hsl(baseHue + 45, sat * 0.5, rng.range(65, 85)));
+  }
+
+  return colors;
+}
+
+/**
+ * Ana görsel üretim fonksiyonu.
+ * @param {number} seed
+ * @param {number} size - Çıktı çözünürlüğü (default 2400)
+ * @returns {HTMLCanvasElement}
+ */
+function generateImage(seed, size = 15000) {
+  const rng    = new SeededRandom(seed);
+  const canvas = document.createElement('canvas');
+  canvas.width  = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  const palette = generatePalette(rng);
+
+  // --- 1. Arka plan gradient ---
+  const bgType = rng.pick(['radial', 'linear', 'conic', 'mesh']);
+
+  if (bgType === 'linear') {
+    const angle  = rng.range(0, Math.PI * 2);
+    const x1 = size * 0.5 + Math.cos(angle) * size;
+    const y1 = size * 0.5 + Math.sin(angle) * size;
+    const x2 = size - x1;
+    const y2 = size - y1;
+    const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+    grad.addColorStop(0,    palette[0]);
+    grad.addColorStop(0.4,  palette[1]);
+    grad.addColorStop(0.7,  palette[2 % palette.length]);
+    grad.addColorStop(1,    palette[3 % palette.length]);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+
+  } else if (bgType === 'radial') {
+    const cx = rng.range(size * 0.2, size * 0.8);
+    const cy = rng.range(size * 0.2, size * 0.8);
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 0.9);
+    grad.addColorStop(0,   palette[0]);
+    grad.addColorStop(0.5, palette[1]);
+    grad.addColorStop(1,   palette[2 % palette.length]);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+
+  } else if (bgType === 'conic') {
+    // Conic gradient API yoksa linear fallback
+    try {
+      const cx = rng.range(size * 0.3, size * 0.7);
+      const cy = rng.range(size * 0.3, size * 0.7);
+      const angle = rng.range(0, Math.PI * 2);
+      const grad = ctx.createConicGradient(angle, cx, cy);
+      for (let i = 0; i < palette.length; i++) {
+        grad.addColorStop(i / palette.length, palette[i]);
+      }
+      grad.addColorStop(1, palette[0]);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+    } catch {
+      ctx.fillStyle = palette[0];
+      ctx.fillRect(0, 0, size, size);
+    }
+  } else {
+    // Mesh: birden fazla radial gradient üst üste
+    ctx.fillStyle = palette[0];
+    ctx.fillRect(0, 0, size, size);
+    const meshCount = rng.int(3, 6);
+    for (let m = 0; m < meshCount; m++) {
+      const cx   = rng.range(0, size);
+      const cy   = rng.range(0, size);
+      const r    = rng.range(size * 0.3, size * 0.8);
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      grad.addColorStop(0,   palette[m % palette.length].replace('hsl', 'hsla').replace(')', ',0.7)'));
+      grad.addColorStop(1,   'transparent');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+    }
+  }
+
+  // --- 2. Sinüs dalgası katmanları ---
+  const waveCount = rng.int(3, 7);
+  for (let w = 0; w < waveCount; w++) {
+    const waveColor = palette[w % palette.length];
+    const alpha     = rng.range(0.08, 0.25);
+    const amplitude = rng.range(size * 0.04, size * 0.18);
+    const frequency = rng.range(0.5, 3.5);
+    const phaseOff  = rng.range(0, Math.PI * 2);
+    const thickness = rng.range(size * 0.015, size * 0.06);
+    const yBase     = rng.range(size * 0.1, size * 0.9);
+    const vertical  = rng.next() > 0.5;
+
+    ctx.beginPath();
+    ctx.lineWidth   = thickness;
+    ctx.strokeStyle = waveColor.replace('hsl', 'hsla').replace(')', `,${alpha})`);
+    ctx.lineCap     = 'round';
+
+    for (let i = 0; i <= size; i += 2) {
+      const t   = (i / size) * Math.PI * 2 * frequency + phaseOff;
+      const off = Math.sin(t) * amplitude;
+      if (vertical) {
+        const x = yBase + off;
+        if (i === 0) ctx.moveTo(x, i);
+        else          ctx.lineTo(x, i);
+      } else {
+        const y = yBase + off;
+        if (i === 0) ctx.moveTo(i, y);
+        else          ctx.lineTo(i, y);
+      }
+    }
+    ctx.stroke();
+  }
+
+  // --- 3. Bezier çizgi katmanları ---
+  const lineCount = rng.int(20, 45);
+  for (let l = 0; l < lineCount; l++) {
+    const color  = palette[l % palette.length];
+    const alpha  = rng.range(0.06, 0.45);
+    const width  = rng.range(1, size * 0.012);
+    const curved = rng.next() > 0.3;
+
+    const x1 = rng.range(-size * 0.1, size * 1.1);
+    const y1 = rng.range(-size * 0.1, size * 1.1);
+    const x2 = rng.range(-size * 0.1, size * 1.1);
+    const y2 = rng.range(-size * 0.1, size * 1.1);
+
+    ctx.beginPath();
+    ctx.lineWidth   = width;
+    ctx.strokeStyle = color.replace('hsl', 'hsla').replace(')', `,${alpha})`);
+    ctx.lineCap     = rng.pick(['round', 'butt', 'square']);
+
+    ctx.moveTo(x1, y1);
+    if (curved) {
+      const cp1x = rng.range(-size * 0.2, size * 1.2);
+      const cp1y = rng.range(-size * 0.2, size * 1.2);
+      const cp2x = rng.range(-size * 0.2, size * 1.2);
+      const cp2y = rng.range(-size * 0.2, size * 1.2);
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x2, y2);
+    } else {
+      ctx.lineTo(x2, y2);
+    }
+    ctx.stroke();
+  }
+
+  // --- 4. Nokta / daire katmanı ---
+  const dotCount = rng.int(8, 25);
+  for (let d = 0; d < dotCount; d++) {
+    const color = palette[d % palette.length];
+    const alpha = rng.range(0.05, 0.2);
+    const r     = rng.range(size * 0.02, size * 0.12);
+    const cx    = rng.range(0, size);
+    const cy    = rng.range(0, size);
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = color.replace('hsl', 'hsla').replace(')', `,${alpha})`);
+    ctx.fill();
+  }
+
+  // --- 5. Noise / grain overlay ---
+  const grainCount = rng.int(2000, 5000);
+  for (let g = 0; g < grainCount; g++) {
+    const gx = rng.range(0, size);
+    const gy = rng.range(0, size);
+    const gr = rng.range(0.5, 2.5);
+    const ga = rng.range(0.01, 0.06);
+    ctx.beginPath();
+    ctx.arc(gx, gy, gr, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${ga})`;
+    ctx.fill();
+  }
+
+  return canvas;
+}
+
+// Modül export
+window.ImageGen = { generateImage, SeededRandom };
+
+</script>
+<script>
+/**
+ * puzzleEngine.js
+ * Jigsaw puzzle parça kesme motoru.
+ * - N×M grid hesabı
+ * - Her kenara bağımsız tab/blank bezier şekli
+ * - Komşu simetri garantisi (A.sağ = -B.sol)
+ * - Snap, grup taşıma, birleştirme
+ */
+
+class PuzzleEngine {
+  /**
+   * @param {HTMLCanvasElement} sourceImage - Kaynak görsel (2400×2400)
+   * @param {number} pieceCount - Hedef parça sayısı (≈500)
+   * @param {number} seed - RNG seed (imageGen ile aynı)
+   */
+  constructor(sourceImage, pieceCount = 500, seed = 1) {
+    this.source     = sourceImage;
+    this.seed       = seed;
+    this.rng        = new window.ImageGen.SeededRandom(seed + 9999);
+
+    // Grid boyutlarını hesapla (en-boy oranına göre)
+    const aspect    = sourceImage.width / sourceImage.height; // 1.0 for square
+    this.cols       = Math.round(Math.sqrt(pieceCount * aspect));
+    this.rows       = Math.round(pieceCount / this.cols);
+    this.totalPieces= this.cols * this.rows;
+
+    this.pieceW     = sourceImage.width  / this.cols;
+    this.pieceH     = sourceImage.height / this.rows;
+
+    // Tab parametreleri grid başında sabitlenir (deterministic)
+    // edges[row][col] = { right: tabVal, bottom: tabVal }
+    // tabVal > 0 → tab (dışbükey), tabVal < 0 → blank (içbükey)
+    this.edges      = this._generateEdges();
+    this.pieces     = [];
+    this.groups     = new Map(); // groupId → Set<pieceIndex>
+    this._nextGroup = 1;
+  }
+
+  /** Tüm parçaları oluştur — atlas (spritesheet) mimarisi ile (sync) */
+  buildPieces(displayScale = 1) {
+    this.displayScale = displayScale;
+    this.dispW = this.pieceW * displayScale;
+    this.dispH = this.pieceH * displayScale;
+
+    const MIN_PIECE_PX = 48;
+    const MAX_CANVAS_PX = 512;
+    const rawScale = MIN_PIECE_PX / Math.min(this.dispW, this.dispH);
+    const maxScaleByLimit = MAX_CANVAS_PX / (Math.max(this.pieceW, this.pieceH) * 1.6);
+    this.pieceScale = Math.max(1, Math.min(rawScale, maxScaleByLimit));
+
+    const ps        = this.pieceScale;
+    const srcPieceW = this.pieceW;
+    const srcPieceH = this.pieceH;
+    const srcPad    = srcPieceW * 0.30;
+    const slotW     = Math.ceil((srcPieceW + srcPad * 2) * ps);
+    const slotH     = Math.ceil((srcPieceH + srcPad * 2) * ps);
+
+    const MAX_ATLAS         = 4096;
+    const atlasColsPerSheet = Math.max(1, Math.floor(MAX_ATLAS / slotW));
+    const piecesPerAtlas    = atlasColsPerSheet * Math.floor(MAX_ATLAS / slotH);
+    const totalPieces       = this.totalPieces;
+    const atlasCount        = Math.ceil(totalPieces / piecesPerAtlas);
+
+    this._atlasSlotW     = slotW;
+    this._atlasSlotH     = slotH;
+    this._piecesPerAtlas = piecesPerAtlas;
+
+    this.atlases = [];
+    for (let a = 0; a < atlasCount; a++) {
+      const inThis  = Math.min(piecesPerAtlas, totalPieces - a * piecesPerAtlas);
+      const aCols   = Math.min(atlasColsPerSheet, inThis);
+      const aRows   = Math.ceil(inThis / aCols);
+      const atlasCv = document.createElement('canvas');
+      atlasCv.width  = aCols * slotW;
+      atlasCv.height = aRows * slotH;
+      this.atlases.push({ canvas: atlasCv, ctx: atlasCv.getContext('2d'), cols: aCols });
+    }
+
+    this.pieces = [];
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const idx = r * this.cols + c;
+        this.pieces.push(this._buildPiece(r, c, idx));
+      }
+    }
+    return this.pieces;
+  }
+
+  /** Tek parça objesi oluşturur — atlas slotuna çizer */
+  _buildPiece(row, col, idx) {
+    const ps        = this.pieceScale;
+    const srcPieceW = this.pieceW;
+    const srcPieceH = this.pieceH;
+    const srcPad    = srcPieceW * 0.30;
+
+    const srcX = col * srcPieceW - srcPad;
+    const srcY = row * srcPieceH - srcPad;
+    const srcW = srcPieceW + srcPad * 2;
+    const srcH = srcPieceH + srcPad * 2;
+
+    const slotW = this._atlasSlotW;
+    const slotH = this._atlasSlotH;
+
+    // Bu parçanın atlas ve slot konumu
+    const ppa      = this._piecesPerAtlas;
+    const atlasIdx = Math.floor(idx / ppa);
+    const localIdx = idx % ppa;
+    const atlas    = this.atlases[atlasIdx];
+    const slotCol  = localIdx % atlas.cols;
+    const slotRow  = Math.floor(localIdx / atlas.cols);
+    const atlasX   = slotCol * slotW;
+    const atlasY   = slotRow * slotH;
+
+    const ctx    = atlas.ctx; // atlas ctx (sadece blit için kullanılır)
+    const padding  = srcPad * ps;
+    const pDispW   = srcPieceW * ps;
+    const pDispH   = srcPieceH * ps;
+    const TAB_SIZE = pDispW * 0.28;
+
+    const topTab    = row > 0             ? -this.edges[row-1][col].bottom : 0;
+    const bottomTab = row < this.rows - 1 ?  this.edges[row][col].bottom   : 0;
+    const leftTab   = col > 0             ? -this.edges[row][col-1].right  : 0;
+    const rightTab  = col < this.cols - 1 ?  this.edges[row][col].right    : 0;
+
+    // ── Slot'u izole et: sadece bu slot'u etkileyen işlemler yapılacak ──
+    // destination-in yerine offscreen canvas kullan, sonra atlas'a blit et
+    const offCv  = document.createElement('canvas');
+    offCv.width  = slotW;
+    offCv.height = slotH;
+    const offCtx = offCv.getContext('2d');
+
+    // 1. Kaynak görseli offscreen'e çiz
+    offCtx.drawImage(
+      this.source,
+      srcX, srcY, srcW, srcH,
+      0, 0, slotW, slotH
+    );
+
+    // 2. destination-in clip — offscreen'de güvenli (tek parça)
+    offCtx.save();
+    offCtx.globalCompositeOperation = 'destination-in';
+    this._drawPiecePath(offCtx, padding, padding, pDispW, pDispH,
+      topTab, rightTab, bottomTab, leftTab, TAB_SIZE);
+    offCtx.fillStyle = '#fff';
+    offCtx.fill();
+    offCtx.restore();
+
+    // 3. Outline
+    offCtx.save();
+    this._drawPiecePath(offCtx, padding, padding, pDispW, pDispH,
+      topTab, rightTab, bottomTab, leftTab, TAB_SIZE);
+    offCtx.strokeStyle = 'rgba(0,0,0,0.6)';
+    offCtx.lineWidth   = 1.2 * ps;
+    offCtx.stroke();
+    offCtx.restore();
+
+    // 4. Offscreen'i atlas slotuna kopyala
+    ctx.drawImage(offCv, atlasX, atlasY);
+
+    // Dünya koordinatı boyutları
+    const drawPadding = srcPad * this.displayScale;
+    const drawW = this.dispW + drawPadding * 2;
+    const drawH = this.dispH + drawPadding * 2;
+
+    return {
+      idx, row, col,
+      // Atlas referansı — ayrı canvas yok
+      atlasIdx,
+      atlasX,  atlasY,
+      atlasW:  slotW,
+      atlasH:  slotH,
+      padding:    drawPadding,
+      canvasW:    drawW,
+      canvasH:    drawH,
+      pieceScale: ps,
+      x: 0, y: 0,
+      targetX: col * this.dispW,
+      targetY: row * this.dispH,
+      joined:  false,
+      groupId: null,
+      topTab, rightTab, bottomTab, leftTab,
+    };
+  }
+
+  /**
+   * buildPieces'in async versiyonu — her 50 parçada bir UI'ya nefes aldırır.
+   * @param {number} displayScale
+   * @param {function} onProgress - (pct 0-100) callback
+   */
+  async buildPiecesBatched(displayScale = 1, onProgress = null) {
+    this.displayScale = displayScale;
+    this.dispW = this.pieceW * displayScale;
+    this.dispH = this.pieceH * displayScale;
+
+    const MIN_PIECE_PX = 48;
+    const MAX_CANVAS_PX = 512;
+    const rawScale = MIN_PIECE_PX / Math.min(this.dispW, this.dispH);
+    const maxScaleByLimit = MAX_CANVAS_PX / (Math.max(this.pieceW, this.pieceH) * 1.6);
+    this.pieceScale = Math.max(1, Math.min(rawScale, maxScaleByLimit));
+
+    const ps        = this.pieceScale;
+    const srcPieceW = this.pieceW;
+    const srcPieceH = this.pieceH;
+    const srcPad    = srcPieceW * 0.30;
+    const slotW     = Math.ceil((srcPieceW + srcPad * 2) * ps);
+    const slotH     = Math.ceil((srcPieceH + srcPad * 2) * ps);
+
+    const MAX_ATLAS      = 4096;
+    const atlasColsPerSheet = Math.max(1, Math.floor(MAX_ATLAS / slotW));
+    const piecesPerAtlas = atlasColsPerSheet * Math.floor(MAX_ATLAS / slotH);
+
+    this._atlasSlotW    = slotW;
+    this._atlasSlotH    = slotH;
+    this._piecesPerAtlas = piecesPerAtlas;
+
+    const totalPieces = this.totalPieces;
+    const atlasCount  = Math.ceil(totalPieces / piecesPerAtlas);
+    this.atlases = [];
+    for (let a = 0; a < atlasCount; a++) {
+      const inThis  = Math.min(piecesPerAtlas, totalPieces - a * piecesPerAtlas);
+      const aCols   = Math.min(atlasColsPerSheet, inThis);
+      const aRows   = Math.ceil(inThis / aCols);
+      const atlasCv = document.createElement('canvas');
+      atlasCv.width  = aCols * slotW;
+      atlasCv.height = aRows * slotH;
+      this.atlases.push({ canvas: atlasCv, ctx: atlasCv.getContext('2d'), cols: aCols });
+    }
+
+    this.pieces = [];
+    const BATCH = 50;
+    for (let idx = 0; idx < totalPieces; idx++) {
+      const r = Math.floor(idx / this.cols);
+      const c = idx % this.cols;
+      this.pieces.push(this._buildPiece(r, c, idx));
+
+      if (idx % BATCH === BATCH - 1) {
+        if (onProgress) onProgress(Math.round((idx + 1) / totalPieces * 100));
+        await new Promise(res => setTimeout(res, 0)); // UI thread'e nefes ver
+      }
+    }
+    if (onProgress) onProgress(100);
+    return this.pieces;
+  }
+
+  /**
+   * Jigsaw parça path'ini çizer.
+   * ox, oy: parça sol-üst köşe (padding sonrası)
+   * pw, ph: parça genişlik/yükseklik
+   * top/right/bottom/left: -1..+1 tab değeri (0 = düz kenar)
+   * tabSize: tab yüksekliği px
+   */
+  _drawPiecePath(ctx, ox, oy, pw, ph, top, right, bottom, left, tabSize) {
+    ctx.beginPath();
+    ctx.moveTo(ox, oy);
+
+    // Üst kenar → sağa
+    this._drawEdge(ctx, ox, oy, ox + pw, oy, top, tabSize, 'horizontal', false);
+    // Sağ kenar → aşağı
+    this._drawEdge(ctx, ox + pw, oy, ox + pw, oy + ph, right, tabSize, 'vertical', false);
+    // Alt kenar → sola
+    this._drawEdge(ctx, ox + pw, oy + ph, ox, oy + ph, bottom, tabSize, 'horizontal', true);
+    // Sol kenar → yukarı
+    this._drawEdge(ctx, ox, oy + ph, ox, oy, left, tabSize, 'vertical', true);
+
+    ctx.closePath();
+  }
+
+  /**
+   * Tek bir kenara jigsaw tab/blank çizer.
+   * x1,y1 → x2,y2 yönünde gider.
+   * tabDir: +1 dışarı, -1 içeri, 0 düz
+   */
+  _drawEdge(ctx, x1, y1, x2, y2, tabDir, tabSize, axis, reverse) {
+    if (tabDir === 0) {
+      ctx.lineTo(x2, y2);
+      return;
+    }
+
+    const dx     = x2 - x1;
+    const dy     = y2 - y1;
+    const len    = Math.sqrt(dx * dx + dy * dy);
+    const ux     = dx / len;
+    const uy     = dy / len;
+    // Normal (90° döndürülmüş)
+    const nx     = -uy * tabDir;
+    const ny     =  ux * tabDir;
+
+    // Tab pozisyonu kenar boyunca (0.35–0.65)
+    const key  = `${axis}_${reverse}`;
+    const pos  = 0.5; // Merkeze sabitle (daha temiz görünür)
+    const tW   = tabSize * 0.55; // Tab genişliği (yarısı her yanda)
+    const tH   = tabSize;        // Tab yüksekliği
+
+    const midX  = x1 + dx * pos;
+    const midY  = y1 + dy * pos;
+
+    // Tab başlangıç ve bitiş noktaları
+    const t0x   = midX - ux * tW;
+    const t0y   = midY - uy * tW;
+    const t1x   = midX + ux * tW;
+    const t1y   = midY + uy * tW;
+
+    // Tab tepe noktası
+    const topX  = midX + nx * tH;
+    const topY  = midY + ny * tH;
+
+    // Kenar başından tab başına
+    ctx.lineTo(t0x, t0y);
+
+    // Tab bezier eğrisi
+    ctx.bezierCurveTo(
+      t0x + nx * tH * 0.5,  t0y + ny * tH * 0.5,
+      topX - ux * tW * 0.8, topY - uy * tW * 0.8,
+      topX, topY
+    );
+    ctx.bezierCurveTo(
+      topX + ux * tW * 0.8, topY + uy * tW * 0.8,
+      t1x + nx * tH * 0.5,  t1y + ny * tH * 0.5,
+      t1x, t1y
+    );
+
+    // Tab bitişinden kenar sonuna
+    ctx.lineTo(x2, y2);
+  }
+
+  /** Deterministic tab değerleri (komşu simetrisi garanti) */
+  _generateEdges() {
+    const edges = [];
+    for (let r = 0; r < this.rows; r++) {
+      edges[r] = [];
+      for (let c = 0; c < this.cols; c++) {
+        // right: bu parça sağa, bottom: bu parça aşağıya tab/blank
+        const right  = c < this.cols - 1 ? (this.rng.next() > 0.5 ? 1 : -1) : 0;
+        const bottom = r < this.rows - 1 ? (this.rng.next() > 0.5 ? 1 : -1) : 0;
+        edges[r][c] = { right, bottom };
+      }
+    }
+    return edges;
+  }
+
+  // ─────────────────────────────────────────────
+  // SNAP & GRUP SİSTEMİ
+  // ─────────────────────────────────────────────
+
+  /**
+   * Parça bırakıldığında snap kontrolü.
+   * @param {number} movedIdx - Hareket eden parça indexi
+   * @param {number} snapThreshold - Snap eşiği px
+   * @returns {boolean} Snap oluştu mu
+   */
+  checkSnap(movedIdx, snapThreshold = 18) {
+  const moved     = this.pieces[movedIdx];
+  const neighbors = this._getNeighbors(movedIdx);
+  let snapped     = false;
+
+  for (const { idx: neighborIdx, dir } of neighbors) {
+    const neighbor = this.pieces[neighborIdx];
+
+    if (moved.groupId !== null && moved.groupId === neighbor.groupId) continue;
+    if (moved.joined && neighbor.joined) continue;
+
+    let expectedDX = 0, expectedDY = 0;
+    if (dir === 'right')  expectedDX =  neighbor.targetX - moved.targetX;
+    if (dir === 'left')   expectedDX =  neighbor.targetX - moved.targetX;
+    if (dir === 'bottom') expectedDY =  neighbor.targetY - moved.targetY;
+    if (dir === 'top')    expectedDY =  neighbor.targetY - moved.targetY;
+
+    // Padding'siz gerçek parça koordinatları
+    const movedPX    = moved.x    + moved.padding;
+    const movedPY    = moved.y    + moved.padding;
+    const neighborPX = neighbor.x + neighbor.padding;
+    const neighborPY = neighbor.y + neighbor.padding;
+
+    const errX = Math.abs((neighborPX - movedPX) - expectedDX);
+    const errY = Math.abs((neighborPY - movedPY) - expectedDY);
+
+    if (errX < snapThreshold && errY < snapThreshold) {
+      // Komşunun olması gereken yeni parça koordinatı
+      const newNeighborPX = movedPX + expectedDX;
+      const newNeighborPY = movedPY + expectedDY;
+
+      // Komşunun grubundaki tüm parçaları aynı delta kadar kaydır
+      const dxShift = newNeighborPX - neighborPX;
+      const dyShift = newNeighborPY - neighborPY;
+
+      if (neighbor.groupId !== null) {
+        for (const memberIdx of this.groups.get(neighbor.groupId)) {
+          this.pieces[memberIdx].x += dxShift;
+          this.pieces[memberIdx].y += dyShift;
+        }
+      } else {
+        neighbor.x += dxShift;
+        neighbor.y += dyShift;
+      }
+
+      this._mergeGroups(movedIdx, neighborIdx);
+      snapped = true;
+    }
+  }
+  return snapped;
+}
+  /** Komşu parçaları döndürür */
+  _getNeighbors(idx) {
+    const { row, col } = this.pieces[idx];
+    const result = [];
+    if (col + 1 < this.cols) result.push({ idx: row * this.cols + col + 1, dir: 'right'  });
+    if (col - 1 >= 0)        result.push({ idx: row * this.cols + col - 1, dir: 'left'   });
+    if (row + 1 < this.rows) result.push({ idx: (row+1) * this.cols + col, dir: 'bottom' });
+    if (row - 1 >= 0)        result.push({ idx: (row-1) * this.cols + col, dir: 'top'    });
+    return result;
+  }
+
+  /** İki parçanın gruplarını birleştirir */
+  _mergeGroups(idxA, idxB) {
+    const pieceA = this.pieces[idxA];
+    const pieceB = this.pieces[idxB];
+
+    // Grup ID'lerini belirle
+    let gA = pieceA.groupId;
+    let gB = pieceB.groupId;
+
+    if (gA === null && gB === null) {
+      // İkisi de grupsuz → yeni grup
+      const newId = this._nextGroup++;
+      pieceA.groupId = newId;
+      pieceB.groupId = newId;
+      this.groups.set(newId, new Set([idxA, idxB]));
+    } else if (gA !== null && gB === null) {
+      pieceB.groupId = gA;
+      this.groups.get(gA).add(idxB);
+    } else if (gA === null && gB !== null) {
+      pieceA.groupId = gB;
+      this.groups.get(gB).add(idxA);
+    } else if (gA !== gB) {
+      // İki farklı grubu birleştir (küçüğü büyüğe ekle)
+      const setA = this.groups.get(gA);
+      const setB = this.groups.get(gB);
+      for (const i of setB) {
+        setA.add(i);
+        this.pieces[i].groupId = gA;
+      }
+      this.groups.delete(gB);
+    }
+  }
+
+  /**
+   * Grup üyelerini taşır (bir parça sürüklenince tüm grup gider).
+   * @param {number} idx - Sürüklenen parça
+   * @param {number} dx  - Delta x
+   * @param {number} dy  - Delta y
+   */
+  moveGroupOf(idx, dx, dy) {
+    const piece = this.pieces[idx];
+    if (piece.groupId !== null) {
+      for (const memberIdx of this.groups.get(piece.groupId)) {
+        this.pieces[memberIdx].x += dx;
+        this.pieces[memberIdx].y += dy;
+      }
+    } else {
+      piece.x += dx;
+      piece.y += dy;
+    }
+  }
+
+  /**
+   * Tüm parçaları tamamlanmış mı kontrol et.
+   */
+  isComplete() {
+    return this.pieces.every(p => p.joined);
+  }
+
+  /**
+   * Joined sayısını döndürür.
+   */
+  joinedCount() {
+    return this.pieces.filter(p => p.joined).length;
+  }
+}
+
+window.PuzzleEngine = PuzzleEngine;
+
+</script>
+<script>
+/**
+ * gameCanvas.js
+ * Ana oyun canvas render motoru.
+ * - Dünya koordinat sistemi (zoom + pan)
+ * - Puzzle tahtası dünya ortasında sabit
+ * - Parçalar tahta etrafına 4 yöne dağıtılır
+ * - Mouse wheel zoom, orta/sağ tuş pan
+ * - Touch: tek parmak sürükle, iki parmak pinch-zoom + pan
+ * - redistributePieces() → dağıt butonu
+ * - centerBoard() → tahtayı ortala butonu
+ */
+
+class GameCanvas {
+  constructor(canvas, engine, opts = {}) {
+    this.canvas  = canvas;
+    this.ctx     = canvas.getContext('2d');
+    this.engine  = engine;
+    this.opts    = Object.assign({
+      bgColor:       '#0d0d1a',
+      boardColor:    '#13132a',
+      snapThreshold: 20,
+      onProgress:    null,
+      onComplete:    null,
+    }, opts);
+
+    this.W = canvas.width;
+    this.H = canvas.height;
+
+    // ── Tahta dünya koordinatı ──
+    const totalBoardW = engine.cols * engine.dispW;
+    const totalBoardH = engine.rows * engine.dispH;
+    this.boardOffX = 1200;
+    this.boardOffY = 800;
+
+    // ── Kamera: başlangıçta tahtayı ekran ortasına getir ──
+    const boardCX = this.boardOffX + totalBoardW / 2;
+    const boardCY = this.boardOffY + totalBoardH / 2;
+    const fitZoom = Math.min(
+      (this.W * 0.75) / totalBoardW,
+      (this.H * 0.80) / totalBoardH,
+      1.0
+    );
+    this.cam = {
+      x:    boardCX - (this.W / 2) / fitZoom,
+      y:    boardCY - (this.H / 2) / fitZoom,
+      zoom: fitZoom,
+    };
+    this.minZoom = 0.12;
+    this.maxZoom = 4.0;
+
+    // ── Sürükleme / pan durumu ──
+    this.drag    = null;   // { idx, lastWX, lastWY }
+    this.panning = null;   // { lastSX, lastSY }
+
+    // ── Touch (Pointer API) ──
+    this.touches          = {};   // pointerId → {x,y}
+    this.pinchDist        = null;
+    this._lastPinchCenter = null;
+
+    // ── Snap animasyonları ──
+    this.snapAnim    = [];   // [{idx, t}]
+    this._snapAnimMap = new Map();
+
+    // ── Board cache ──
+    this._boardCache     = null;
+    this._boardCacheZoom = null;
+
+    // ── Joined canvas (pre-rendered) ──
+    this._joinedCv    = null;
+    this._joinedCtx   = null;
+    this._joinedDirty = true;
+
+    // ── Perf cache ──
+    this._isMobile    = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    this._cachedJoined = 0;
+    this._cachedRect   = null;
+    this._rectFrame    = -1;
+
+    // ── Z-order ──
+    this.zOrder = engine.pieces.map((_, i) => i);
+
+    // ── İlk dağıtma ──
+    this._scatterPieces(engine.seed + 77777, false);
+
+    // ── Spatial grid ──
+    this._buildSpatialGrid();
+    for (const p of engine.pieces) this._sgUpdate(p);
+
+    // ── Events ──
+    this._bindEvents();
+
+    // ── RAF ──
+    this._rafId    = null;
+    this._lastTime = 0;
+    this.running   = false;
+  }
+
+  // ─────────────────────────────────────────────
+  // BAŞLAT / DURDUR
+  // ─────────────────────────────────────────────
+
+  start() {
+    this.running = true;
+    this._dirty  = true;
+    this._scheduleFrame();
+  }
+
+  stop() {
+    this.running = false;
+    if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
+  }
+
+  /** Bir sonraki frame'i planla — dirty değilse atla */
+  _scheduleFrame() {
+    if (this._rafId || !this.running) return;
+    this._rafId = requestAnimationFrame(t => this._loop(t));
+  }
+
+  /** Sahneyi "kirli" işaretle ve frame planla */
+  _markDirty() {
+    this._dirty = true;
+    this._scheduleFrame();
+  }
+
+  _loop(now) {
+    this._rafId = null;
+    if (!this.running) return;
+    const dt = Math.min((now - this._lastTime) / 1000, 0.05);
+    this._lastTime = now;
+
+    const hadAnim = this.snapAnim.length > 0;
+    this._update(dt);
+    const hasAnim = this.snapAnim.length > 0;
+
+    // Animasyon devam ediyorsa dirty say
+    if (hasAnim || hadAnim) this._dirty = true;
+
+    if (this._dirty) {
+      this._draw();
+      this._dirty = false;
+    }
+
+    // Animasyon hâlâ varsa bir sonraki frame'i planla
+    if (hasAnim) this._scheduleFrame();
+  }
+
+  // ─────────────────────────────────────────────
+  // DAĞITMA
+  // ─────────────────────────────────────────────
+
+  _scatterPieces(rngSeed, onlyUnjoined) {
+  const rng    = new window.ImageGen.SeededRandom(rngSeed >>> 0);
+  const e      = this.engine;
+  const boardW = e.cols * e.dispW;
+  const boardH = e.rows * e.dispH;
+
+  // Dağıtılacak parçalar: joined veya gruplanmış olanları atla
+  const targets = e.pieces.filter(p =>
+    onlyUnjoined ? (!p.joined && p.groupId === null) : true
+  );
+  if (targets.length === 0) return;
+
+  const cw  = e.pieces[0].canvasW + 4;  // parça genişliği + boşluk
+  const ch  = e.pieces[0].canvasH + 4;  // parça yüksekliği + boşluk
+  const gap = 10;                        // tahta ile ilk sıra arası
+
+  // Çerçeve kaç sıra gerekiyor?
+  // Önce tahtanın etrafını saran slot sayısını hesapla,
+  // yetmezse daha dış halkaya geç.
+  const slots = [];
+
+  let ring = 0; // 0 = en içteki halka, 1 = bir dış, ...
+  while (slots.length < targets.length) {
+    const offsetX = gap + ring * cw;
+    const offsetY = gap + ring * ch;
+
+    // Bu halkanın dış sınırları (dünya koordinatı)
+    const left   = this.boardOffX - offsetX - cw;
+    const top    = this.boardOffY - offsetY - ch;
+    const right  = this.boardOffX + boardW + offsetX;
+    const bottom = this.boardOffY + boardH + offsetY;
+
+    // Bu halkada kaç sütun / satır var?
+    const hCols = Math.ceil((right - left) / cw);  // üst ve alt kenar
+    const vRows = Math.ceil((bottom - top) / ch);  // sol ve sağ kenar
+
+    // Üst kenar (soldan sağa)
+    for (let c = 0; c < hCols; c++) {
+      slots.push({ x: left + c * cw, y: top });
+    }
+    // Sağ kenar (yukarıdan aşağıya, köşeler hariç)
+    for (let r = 1; r < vRows - 1; r++) {
+      slots.push({ x: right, y: top + r * ch });
+    }
+    // Alt kenar (sağdan sola)
+    for (let c = hCols - 1; c >= 0; c--) {
+      slots.push({ x: left + c * cw, y: bottom });
+    }
+    // Sol kenar (aşağıdan yukarıya, köşeler hariç)
+    for (let r = vRows - 2; r >= 1; r--) {
+      slots.push({ x: left, y: top + r * ch });
+    }
+
+    ring++;
+    if (ring > 20) break; // sonsuz döngü guard
+  }
+
+  // Slotları seed'li karıştır
+  for (let i = slots.length - 1; i > 0; i--) {
+    const j = Math.floor(rng.next() * (i + 1));
+    [slots[i], slots[j]] = [slots[j], slots[i]];
+  }
+
+  // Parçaları yerleştir
+  targets.forEach((p, i) => {
+    const slot = slots[i % slots.length];
+    p.x = slot.x;
+    p.y = slot.y;
+  });
+}
+
+  /** Public: joined olmayan parçaları yeniden dağıt */
+  redistributePieces() {
+    this._scatterPieces(Date.now() & 0xFFFFFF, true);
+    this._markDirty();
+  }
+
+  /** Public: tahtayı ekran ortasına getir */
+  centerBoard() {
+    const e      = this.engine;
+    const boardW = e.cols * e.dispW;
+    const boardH = e.rows * e.dispH;
+    const cx     = this.boardOffX + boardW / 2;
+    const cy     = this.boardOffY + boardH / 2;
+    const zoom   = Math.min(
+      (this.W * 0.75) / boardW,
+      (this.H * 0.80) / boardH,
+      1.0
+    );
+    this.cam.zoom = zoom;
+    this.cam.x    = cx - (this.W / 2) / zoom;
+    this.cam.y    = cy - (this.H / 2) / zoom;
+    this._markDirty();
+  }
+
+  resize(w, h) {
+    this.W = w;
+    this.H = h;
+    this._boardCache = null;
+    this._cachedRect = null;
+  }
+
+  // ─────────────────────────────────────────────
+  // KOORDİNAT DÖNÜŞÜMÜ
+  // ─────────────────────────────────────────────
+
+  _clientToCanvas(cx, cy) {
+    // getBoundingClientRect pahalı — 30 frame'de bir veya resize'da yenile
+    if (!this._cachedRect || (this._rectFrame++ % 30 === 0)) {
+      this._cachedRect = this.canvas.getBoundingClientRect();
+    }
+    const rect   = this._cachedRect;
+    const scaleX = this.canvas.width  / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+    return {
+      sx: (cx - rect.left) * scaleX,
+      sy: (cy - rect.top)  * scaleY,
+    };
+  }
+
+  _getScreenPos(e) {
+    return this._clientToCanvas(e.clientX, e.clientY);
+  }
+
+  _screenToWorld(sx, sy) {
+    return {
+      x: sx / this.cam.zoom + this.cam.x,
+      y: sy / this.cam.zoom + this.cam.y,
+    };
+  }
+
+  _getPos(e) {
+    const { sx, sy } = this._getScreenPos(e);
+    const { x, y }  = this._screenToWorld(sx, sy);
+    return { sx, sy, x, y };
+  }
+
+  // ─────────────────────────────────────────────
+  // UPDATE
+  // ─────────────────────────────────────────────
+
+  _update(dt) {
+    // snapAnim → Map<idx, animObj> for O(1) lookup in _drawPiece
+    const map = this._snapAnimMap || (this._snapAnimMap = new Map());
+    this.snapAnim = this.snapAnim.filter(a => {
+      a.t += dt * 6;
+      if (a.t >= 1) { map.delete(a.idx); return false; }
+      map.set(a.idx, a);
+      return true;
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // DRAW
+  // ─────────────────────────────────────────────
+
+  _draw() {
+    const ctx  = this.ctx;
+    const zoom = this.cam.zoom;
+
+    ctx.clearRect(0, 0, this.W, this.H);
+    ctx.fillStyle = this.opts.bgColor;
+    ctx.fillRect(0, 0, this.W, this.H);
+
+    // ── Viewport sınırları (dünya koordinatı) ──
+    const vpLeft   = this.cam.x;
+    const vpTop    = this.cam.y;
+    const vpRight  = this.cam.x + this.W / zoom;
+    const vpBottom = this.cam.y + this.H / zoom;
+
+    ctx.save();
+    ctx.translate(-this.cam.x * zoom, -this.cam.y * zoom);
+    ctx.scale(zoom, zoom);
+
+    this._drawGrid(vpLeft, vpTop, vpRight, vpBottom);
+    this._drawBoard();
+
+    // Joined canvas ilk render'da yoksa oluştur
+    if (!this._joinedCv) this._rebuildJoinedCanvas();
+    this._drawJoinedOnBoard(vpLeft, vpTop, vpRight, vpBottom);
+
+    // Snap animasyon map — O(1) lookup
+    const snapMap = this._snapAnimMap;
+
+    for (const idx of this.zOrder) {
+      const p = this.engine.pieces[idx];
+      if (p.joined) continue;
+
+      // Viewport culling — görünmüyor, atla
+      if (p.x + p.canvasW < vpLeft  || p.x > vpRight  ||
+          p.y + p.canvasH < vpTop   || p.y > vpBottom) continue;
+
+      this._drawPiece(ctx, p, idx, snapMap, zoom);
+    }
+
+    ctx.restore();
+    this._drawHUD();
+  }
+
+  _drawGrid(vpLeft, vpTop, vpRight, vpBottom) {
+    const zoom = this.cam.zoom;
+    if (zoom < 0.22) return;
+
+    // Çok küçük zoom'da grid gereksiz
+    const ctx  = this.ctx;
+    const step = 100;
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.028)';
+    ctx.lineWidth   = 1 / zoom;
+
+    const sx = Math.floor(vpLeft / step) * step;
+    const sy = Math.floor(vpTop  / step) * step;
+
+    // beginPath bir kez aç, tüm çizgileri ekle, bir stroke
+    ctx.beginPath();
+    for (let wx = sx; wx < vpRight;  wx += step) { ctx.moveTo(wx, vpTop); ctx.lineTo(wx, vpBottom); }
+    for (let wy = sy; wy < vpBottom; wy += step) { ctx.moveTo(vpLeft, wy); ctx.lineTo(vpRight, wy); }
+    ctx.stroke();
+  }
+
+  _drawBoard() {
+    const ctx  = this.ctx;
+    const e    = this.engine;
+    const zoom = this.cam.zoom;
+
+    // Board cache: zoom değişince yeniden oluştur
+    // Izgara çizgileri ayrı bir offscreen canvas'a pre-render edilir
+    if (!this._boardCache || this._boardCacheZoom !== zoom) {
+      this._buildBoardCache(zoom);
+    }
+
+    const bx = this.boardOffX;
+    const by = this.boardOffY;
+    const bw = e.cols * e.dispW;
+    const bh = e.rows * e.dispH;
+
+    // Gölge sadece board fill için, cache kullanmadan
+    ctx.shadowColor   = 'rgba(0,0,0,0.55)';
+    ctx.shadowBlur    = 30 / zoom;
+    ctx.shadowOffsetX = 6  / zoom;
+    ctx.shadowOffsetY = 6  / zoom;
+    ctx.fillStyle     = this.opts.boardColor;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw, bh, 8 / zoom);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur  = 0;
+
+    // Cache'den ızgara + border
+    ctx.drawImage(this._boardCache, bx, by, bw, bh);
+  }
+
+  _buildBoardCache(zoom) {
+    const e  = this.engine;
+    const bw = e.cols * e.dispW;
+    const bh = e.rows * e.dispH;
+    const cv = document.createElement('canvas');
+    cv.width  = Math.ceil(bw);
+    cv.height = Math.ceil(bh);
+    const c   = cv.getContext('2d');
+
+    // Border
+    c.strokeStyle = 'rgba(120,120,255,0.14)';
+    c.lineWidth   = 1.5 / zoom;
+    c.beginPath();
+    c.roundRect(0, 0, bw, bh, 8 / zoom);
+    c.stroke();
+
+    // Izgara — tek beginPath
+    c.strokeStyle = 'rgba(255,255,255,0.04)';
+    c.lineWidth   = 0.5 / zoom;
+    c.beginPath();
+    for (let col = 0; col <= e.cols; col++) {
+      const x = col * e.dispW;
+      c.moveTo(x, 0); c.lineTo(x, bh);
+    }
+    for (let row = 0; row <= e.rows; row++) {
+      const y = row * e.dispH;
+      c.moveTo(0, y); c.lineTo(bw, y);
+    }
+    c.stroke();
+
+    this._boardCache     = cv;
+    this._boardCacheZoom = zoom;
+  }
+
+  /** Joined parça eklenince joined canvas'ını güncelle */
+  _rebuildJoinedCanvas() {
+    const e   = this.engine;
+    const bw  = Math.ceil(e.cols * e.dispW);
+    const bh  = Math.ceil(e.rows * e.dispH);
+
+    if (!this._joinedCv || this._joinedCv.width !== bw || this._joinedCv.height !== bh) {
+      this._joinedCv  = document.createElement('canvas');
+      this._joinedCv.width  = bw;
+      this._joinedCv.height = bh;
+      this._joinedCtx = this._joinedCv.getContext('2d');
+    }
+
+    const jctx    = this._joinedCtx;
+    const atlases = e.atlases;
+    jctx.clearRect(0, 0, bw, bh);
+    for (const p of e.pieces) {
+      if (!p.joined) continue;
+      const dx = p.col * e.dispW - p.padding;
+      const dy = p.row * e.dispH - p.padding;
+      jctx.drawImage(
+        atlases[p.atlasIdx].canvas,
+        p.atlasX, p.atlasY, p.atlasW, p.atlasH,
+        dx, dy, p.canvasW, p.canvasH
+      );
+    }
+    this._joinedDirty = false;
+  }
+
+  _drawJoinedOnBoard(vpLeft, vpTop, vpRight, vpBottom) {
+    if (!this._joinedCv) return;
+    // Viewport culling — board tamamen dışarıdaysa atla
+    const bx = this.boardOffX;
+    const by = this.boardOffY;
+    const bw = this._joinedCv.width;
+    const bh = this._joinedCv.height;
+    if (bx + bw < vpLeft || bx > vpRight || by + bh < vpTop || by > vpBottom) return;
+    this.ctx.drawImage(this._joinedCv, bx, by);
+  }
+
+  _drawPiece(ctx, piece, idx, snapMap, zoom) {
+    const isDragging = this.drag && (
+      this.drag.idx === idx ||
+      (piece.groupId !== null &&
+        this.engine.pieces[this.drag.idx]?.groupId === piece.groupId)
+    );
+    const snapA = snapMap ? snapMap.get(idx) : null;
+
+    // Shadow sadece sürükleme veya snap animasyonu varsa — mobil GPU için kritik
+    if (isDragging || snapA) {
+      ctx.save();
+      if (isDragging) {
+        ctx.shadowColor   = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur    = 16 / zoom;
+        ctx.shadowOffsetX = 3  / zoom;
+        ctx.shadowOffsetY = 5  / zoom;
+      } else if (snapA) {
+        const pulse       = Math.sin(snapA.t * Math.PI);
+        ctx.shadowColor   = `rgba(100,200,255,${0.8 * pulse})`;
+        ctx.shadowBlur    = 24 / zoom * pulse;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+      }
+      ctx.drawImage(
+        this.engine.atlases[piece.atlasIdx].canvas,
+        piece.atlasX, piece.atlasY, piece.atlasW, piece.atlasH,
+        piece.x, piece.y, piece.canvasW, piece.canvasH
+      );
+      ctx.restore();
+    } else {
+      // Save/restore yok — en hızlı yol
+      ctx.drawImage(
+        this.engine.atlases[piece.atlasIdx].canvas,
+        piece.atlasX, piece.atlasY, piece.atlasW, piece.atlasH,
+        piece.x, piece.y, piece.canvasW, piece.canvasH
+      );
+    }
+  }
+
+  _drawHUD() {
+    const ctx    = this.ctx;
+    // joinedCount() her frame pieces.filter() yapıyor — önbellek kullan
+    const joined = this._cachedJoined ?? 0;
+    const total  = this.engine.totalPieces;
+    const pct    = total > 0 ? Math.round(joined / total * 100) : 0;
+
+    const barX = 15, barY = 15, barW = 220, barH = 6;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.beginPath(); ctx.roundRect(barX, barY, barW, barH, 3); ctx.fill();
+
+    if (joined > 0) {
+      ctx.fillStyle = 'rgba(61,220,132,0.85)';
+      ctx.beginPath(); ctx.roundRect(barX, barY, barW * (joined / total), barH, 3); ctx.fill();
+    }
+
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font      = '12px monospace';
+    ctx.fillText(`${joined} / ${total}  (${pct}%)`, barX, barY + 22);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.font      = '11px monospace';
+    if (!this._isMobile) {
+      ctx.fillText(`zoom ${this.cam.zoom.toFixed(2)}×`, barX, this.H - 30);
+      ctx.fillText('Scroll: zoom  |  Sağ/orta tuş: pan  |  ↺ Dağıt  |  ⌂ Tahta', barX, this.H - 14);
+    } else {
+      ctx.fillText('1 parmak: sürükle/kaydır  |  2 parmak: zoom', barX, this.H - 14);
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // SNAP & JOIN
+  // ─────────────────────────────────────────────
+
+  _afterDrop(idx) {
+    const snapped = this.engine.checkSnap(idx, this.opts.snapThreshold);
+    if (snapped) {
+      const piece = this.engine.pieces[idx];
+      const group = piece.groupId !== null
+        ? [...this.engine.groups.get(piece.groupId)]
+        : [idx];
+      for (const gi of group) {
+        this.snapAnim.push({ idx: gi, t: 0 });
+        this._snapAnimMap.set(gi, this.snapAnim[this.snapAnim.length - 1]);
+      }
+    }
+
+    this._checkJoined(idx);
+    this._rebuildJoinedCanvas();
+
+    // Snap sonrası spatial grid güncelle (grup taşındı)
+    const piece2 = this.engine.pieces[idx];
+    if (piece2.groupId !== null) {
+      for (const mi of this.engine.groups.get(piece2.groupId)) this._sgUpdate(this.engine.pieces[mi]);
+    } else {
+      this._sgUpdate(piece2);
+    }
+
+    // joined sayısını güncelle (her frame filter() yerine)
+    this._cachedJoined = this.engine.joinedCount();
+
+    if (this.opts.onProgress)
+      this.opts.onProgress(this._cachedJoined, this.engine.totalPieces);
+    if (this.engine.isComplete() && this.opts.onComplete)
+      this.opts.onComplete();
+  }
+
+  _checkJoined(idx) {
+    const e     = this.engine;
+    const piece = e.pieces[idx];
+    const group = piece.groupId !== null
+      ? [...e.groups.get(piece.groupId)]
+      : [idx];
+
+    for (const gi of group) {
+      const p = e.pieces[gi];
+      if (p.joined) continue;
+      const tx     = this.boardOffX + p.col * e.dispW - p.padding;
+      const ty     = this.boardOffY + p.row * e.dispH - p.padding;
+      const thresh = this.opts.snapThreshold * 1.4;
+      if (Math.abs(p.x - tx) < thresh && Math.abs(p.y - ty) < thresh) {
+        p.joined = true;
+        p.x      = tx;
+        p.y      = ty;
+        this.snapAnim.push({ idx: gi, t: 0 });
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // MOUSE EVENTS
+  // ─────────────────────────────────────────────
+
+  _onMouseDown(e) {
+    if (e.button === 1 || e.button === 2) {
+      const { sx, sy } = this._getScreenPos(e);
+      this.panning = { lastSX: sx, lastSY: sy };
+      return;
+    }
+    if (e.button !== 0) return;
+    const { x, y } = this._getPos(e);
+    this._tryStartDrag(x, y);
+  }
+
+  _onMouseMove(e) {
+    if (this.panning) {
+      const { sx, sy } = this._getScreenPos(e);
+      this.cam.x -= (sx - this.panning.lastSX) / this.cam.zoom;
+      this.cam.y -= (sy - this.panning.lastSY) / this.cam.zoom;
+      this.panning.lastSX = sx;
+      this.panning.lastSY = sy;
+      this._markDirty();
+      return;
+    }
+    if (!this.drag) return;
+    const { x, y } = this._getPos(e);
+    this._moveDrag(x, y);
+  }
+
+  _onMouseUp(e) {
+    if (this.panning) { this.panning = null; return; }
+    if (!this.drag)   return;
+    const idx = this.drag.idx;
+    this.drag = null;
+    this._afterDrop(idx);
+  }
+
+  _onWheel(e) {
+    e.preventDefault();
+    const { sx, sy } = this._getScreenPos(e);
+    this._applyZoom(e.deltaY > 0 ? 0.9 : 1.1, sx, sy);
+  }
+
+  // ─────────────────────────────────────────────
+  // POINTER EVENTS (touch + mouse unified)
+  // ─────────────────────────────────────────────
+
+  _onPointerDown(e) {
+    e.preventDefault();
+    try { this.canvas.setPointerCapture(e.pointerId); } catch(_) {}
+
+    this.touches[e.pointerId] = { x: e.clientX, y: e.clientY };
+    const ids   = Object.keys(this.touches);
+    const count = ids.length;
+
+    if (count === 1) {
+      // İlk parmak: parçaya değiyor mu bak
+      const { x, y } = this._getPos(e);
+      const hit = this._findPieceAt(x, y);
+      if (hit !== -1) {
+        // Parça sürükleme: panning'i iptal et
+        this.panning = null;
+        this._startDragIdx(hit, x, y);
+      } else {
+        // Boş alan: pan modu
+        this.drag = null;
+        const { sx, sy } = this._getScreenPos(e);
+        this.panning = { lastSX: sx, lastSY: sy };
+      }
+    } else if (count === 2) {
+      // İkinci parmak geldi: drag/pan durdur, pinch başlat
+      this.drag    = null;
+      this.panning = null;
+      this.pinchDist        = this._getPinchDist();
+      this._lastPinchCenter = this._getPinchCenterScreen();
+    }
+  }
+
+  _onPointerMove(e) {
+    e.preventDefault();
+    if (!this.touches[e.pointerId]) return;
+
+    this.touches[e.pointerId] = { x: e.clientX, y: e.clientY };
+    const count = Object.keys(this.touches).length;
+
+    if (count >= 2) {
+      // Pinch-zoom + pan
+      const newDist   = this._getPinchDist();
+      const newCenter = this._getPinchCenterScreen();
+
+      if (this.pinchDist && newDist > 0) {
+        // Zoom: merkeze göre
+        this._applyZoom(newDist / this.pinchDist, newCenter.sx, newCenter.sy);
+      }
+
+      // Pinch merkezi kaydıysa pan
+      if (this._lastPinchCenter) {
+        this.cam.x -= (newCenter.sx - this._lastPinchCenter.sx) / this.cam.zoom;
+        this.cam.y -= (newCenter.sy - this._lastPinchCenter.sy) / this.cam.zoom;
+        this._markDirty();
+      }
+
+      this.pinchDist        = newDist;
+      this._lastPinchCenter = newCenter;
+      return;
+    }
+
+    // Tek parmak
+    this._lastPinchCenter = null;
+    this.pinchDist        = null;
+
+    if (this.drag) {
+      const { x, y } = this._getPos(e);
+      this._moveDrag(x, y);
+      return;
+    }
+
+    if (this.panning) {
+      const { sx, sy } = this._getScreenPos(e);
+      this.cam.x -= (sx - this.panning.lastSX) / this.cam.zoom;
+      this.cam.y -= (sy - this.panning.lastSY) / this.cam.zoom;
+      this.panning.lastSX = sx;
+      this.panning.lastSY = sy;
+      this._markDirty();
+    }
+  }
+
+  _onPointerUp(e) {
+    e.preventDefault();
+    const wasTracked = !!this.touches[e.pointerId];
+    delete this.touches[e.pointerId];
+
+    const count = Object.keys(this.touches).length;
+
+    // Pinch bitti, kalan tek parmak için sıfırla
+    if (count < 2) {
+      this.pinchDist        = null;
+      this._lastPinchCenter = null;
+    }
+
+    if (count === 1) {
+      // Bir parmak kaldı: drag/pan yok, pan moduna geç
+      this.drag = null;
+      const remaining = Object.values(this.touches)[0];
+      if (remaining) {
+        this.panning = {
+          lastSX: this._clientToCanvas(remaining.x, remaining.y).sx,
+          lastSY: this._clientToCanvas(remaining.x, remaining.y).sy,
+        };
+      }
+      return;
+    }
+
+    if (count === 0) {
+      this.panning = null;
+      if (this.drag && wasTracked) {
+        const idx = this.drag.idx;
+        this.drag = null;
+        this._afterDrop(idx);
+      } else {
+        this.drag = null;
+      }
+    }
+  }
+
+  _getPinchDist() {
+    const pts = Object.values(this.touches);
+    if (pts.length < 2) return null;
+    const dx = pts[0].x - pts[1].x;
+    const dy = pts[0].y - pts[1].y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  _getPinchCenter() {
+    const pts = Object.values(this.touches);
+    return {
+      x: (pts[0].x + pts[1].x) / 2,
+      y: (pts[0].y + pts[1].y) / 2,
+    };
+  }
+
+  _getPinchCenterScreen() {
+    const c   = this._getPinchCenter();
+    const cvs = this._clientToCanvas(c.x, c.y);
+    return { sx: cvs.sx, sy: cvs.sy };
+  }
+
+  // ─────────────────────────────────────────────
+  // DRAG HELPERS
+  // ─────────────────────────────────────────────
+
+  _tryStartDrag(wx, wy) {
+    const idx = this._findPieceAt(wx, wy);
+    if (idx !== -1) this._startDragIdx(idx, wx, wy);
+  }
+
+  _startDragIdx(idx, wx, wy) {
+    const piece = this.engine.pieces[idx];
+    const group = piece.groupId !== null
+      ? new Set(this.engine.groups.get(piece.groupId))
+      : new Set([idx]);
+
+    this.zOrder = [
+      ...this.zOrder.filter(i => !group.has(i)),
+      ...this.zOrder.filter(i => group.has(i) && i !== idx),
+      idx,
+    ];
+
+    this.drag = { idx, lastWX: wx, lastWY: wy };
+  }
+
+  _moveDrag(wx, wy) {
+    const dx = wx - this.drag.lastWX;
+    const dy = wy - this.drag.lastWY;
+    this.drag.lastWX = wx;
+    this.drag.lastWY = wy;
+    this.engine.moveGroupOf(this.drag.idx, dx, dy);
+    this._sgUpdateGroup(this.drag.idx);
+    this._markDirty();
+  }
+
+  /** Spatial grid — her piece move sonrası güncellenir */
+  _buildSpatialGrid() {
+    // Hücre boyutu: ortalama parça boyutunun 2 katı
+    const e        = this.engine;
+    const cellSize = Math.max(e.dispW, e.dispH) * 2.5;
+    this._sgCellSize = cellSize;
+    this._sgGrid     = new Map();
+  }
+
+  _sgKey(cx, cy) { return (cx << 16) | (cy & 0xFFFF); }
+
+  _sgUpdate(piece) {
+    // Eski hücreden çıkar
+    if (piece._sgCells) {
+      for (const key of piece._sgCells) {
+        const bucket = this._sgGrid.get(key);
+        if (bucket) { bucket.delete(piece.idx); if (!bucket.size) this._sgGrid.delete(key); }
+      }
+    }
+    if (piece.joined) { piece._sgCells = null; return; }
+
+    const cs   = this._sgCellSize;
+    const x0   = Math.floor(piece.x / cs);
+    const y0   = Math.floor(piece.y / cs);
+    const x1   = Math.floor((piece.x + piece.canvasW) / cs);
+    const y1   = Math.floor((piece.y + piece.canvasH) / cs);
+    const cells = [];
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cy = y0; cy <= y1; cy++) {
+        const key = this._sgKey(cx, cy);
+        if (!this._sgGrid.has(key)) this._sgGrid.set(key, new Set());
+        this._sgGrid.get(key).add(piece.idx);
+        cells.push(key);
+      }
+    }
+    piece._sgCells = cells;
+  }
+
+  _sgUpdateGroup(idx) {
+    const piece = this.engine.pieces[idx];
+    if (piece.groupId !== null) {
+      for (const mi of this.engine.groups.get(piece.groupId)) this._sgUpdate(this.engine.pieces[mi]);
+    } else {
+      this._sgUpdate(piece);
+    }
+  }
+
+  _findPieceAt(wx, wy) {
+    if (!this._sgGrid) return this._findPieceAtLinear(wx, wy);
+    const cs  = this._sgCellSize;
+    const cx  = Math.floor(wx / cs);
+    const cy  = Math.floor(wy / cs);
+    const key = this._sgKey(cx, cy);
+    const bucket = this._sgGrid.get(key);
+    if (!bucket) return -1;
+
+    // Z-order içinde en üsttekini bul
+    let best = -1, bestZ = -1;
+    for (const idx of bucket) {
+      const p = this.engine.pieces[idx];
+      if (p.joined) continue;
+      if (wx >= p.x && wx <= p.x + p.canvasW && wy >= p.y && wy <= p.y + p.canvasH) {
+        const z = this.zOrder.indexOf(idx);
+        if (z > bestZ) { bestZ = z; best = idx; }
+      }
+    }
+    return best;
+  }
+
+  _findPieceAtLinear(wx, wy) {
+    for (let zi = this.zOrder.length - 1; zi >= 0; zi--) {
+      const idx   = this.zOrder[zi];
+      const piece = this.engine.pieces[idx];
+      if (piece.joined) continue;
+      if (wx >= piece.x && wx <= piece.x + piece.canvasW &&
+          wy >= piece.y && wy <= piece.y + piece.canvasH) {
+        return idx;
+      }
+    }
+    return -1;
+  }
+
+  // ─────────────────────────────────────────────
+  // ZOOM
+  // ─────────────────────────────────────────────
+
+  _applyZoom(factor, sx, sy) {
+    const oldZoom = this.cam.zoom;
+    const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, oldZoom * factor));
+    if (newZoom === oldZoom) return;
+    const wx      = sx / oldZoom + this.cam.x;
+    const wy      = sy / oldZoom + this.cam.y;
+    this.cam.zoom = newZoom;
+    this.cam.x    = wx - sx / newZoom;
+    this.cam.y    = wy - sy / newZoom;
+    this._markDirty();
+  }
+
+  // ─────────────────────────────────────────────
+  // EVENT BINDER
+  // ─────────────────────────────────────────────
+
+  _bindEvents() {
+    const c = this.canvas;
+
+    // touch-action: none → tarayıcının kendi scroll/zoom'unu engelle
+    c.style.touchAction = 'none';
+    c.style.userSelect  = 'none';
+
+    // Pointer API — hem mouse hem touch hem pen yakalar
+    // Mouse eventlerini AYRI bağlamıyoruz; pointer zaten kapsıyor.
+    c.addEventListener('pointerdown',   e => { if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1 && e.button !== 2) return; this._onPointerDown(e); }, { passive: false });
+    c.addEventListener('pointermove',   e => this._onPointerMove(e), { passive: false });
+    c.addEventListener('pointerup',     e => this._onPointerUp(e),   { passive: false });
+    c.addEventListener('pointercancel', e => this._onPointerUp(e),   { passive: false });
+
+    // Sağ/orta tık pan (mouse-only, pointer button kontrolü)
+    c.addEventListener('pointerdown', e => {
+      if (e.pointerType !== 'mouse') return;
+      if (e.button === 1 || e.button === 2) {
+        const { sx, sy } = this._getScreenPos(e);
+        this.panning = { lastSX: sx, lastSY: sy };
+      }
+    }, { passive: false });
+
+    // Wheel zoom
+    c.addEventListener('wheel', e => this._onWheel(e), { passive: false });
+    c.addEventListener('contextmenu', e => e.preventDefault());
+  }
+}
+
+window.GameCanvas = GameCanvas;
+
+</script>
+<script>
+// ── STATE ──
+let pieceCount  = 500;
+let currentSeed = Math.floor(Math.random() * 999999) + 1;
+let gameCanvas  = null;
+let timerInterval = null;
+let startTime   = null;
+let confettiAF  = null;
+
+// ── MENÜ ──
+const seedInput = document.getElementById('seed-input');
+seedInput.value = currentSeed;
+
+document.getElementById('btn-random-seed').addEventListener('click', () => {
+  currentSeed = Math.floor(Math.random() * 999999) + 1;
+  seedInput.value = currentSeed;
+});
+
+document.querySelectorAll('.piece-opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('.piece-opt').forEach(o => o.classList.remove('active'));
+    opt.classList.add('active');
+    pieceCount = parseInt(opt.dataset.val);
+  });
+});
+
+document.getElementById('btn-start').addEventListener('click', () => {
+  currentSeed = parseInt(seedInput.value) || Math.floor(Math.random() * 999999) + 1;
+  startGame(currentSeed, pieceCount);
+});
+
+document.getElementById('btn-menu-back').addEventListener('click', goToMenu);
+document.getElementById('btn-again').addEventListener('click', () => {
+  document.getElementById('screen-complete').classList.remove('visible');
+  currentSeed = Math.floor(Math.random() * 999999) + 1;
+  seedInput.value = currentSeed;
+  goToMenu();
+});
+
+function goToMenu() {
+  if (gameCanvas) { gameCanvas.stop(); gameCanvas = null; }
+  clearInterval(timerInterval);
+  cancelAnimationFrame(confettiAF);
+  document.getElementById('screen-game').classList.remove('visible');
+  document.getElementById('screen-complete').classList.remove('visible');
+  document.getElementById('confetti-canvas').style.display = 'none';
+  document.getElementById('screen-menu').style.display = 'flex';
+}
+
+// ── OYUN BAŞLATMA ──
+async function startGame(seed, pieces) {
+  document.getElementById('screen-menu').style.display = 'none';
+  showLoading('Görsel üretiliyor…', 5);
+  await sleep(30);
+
+  // 1. Görsel üret — 2400px yeterli, 15000px belleği patlatıyor
+  const sourceCanvas = ImageGen.generateImage(seed, 2400);
+  setLoading('Parçalar kesiliyor…', 40);
+  await sleep(30);
+
+  // 2. Engine: parça boyutunu ekrana göre hesapla
+  // Tahta tüm ekrana sığacak şekilde (zoom out ile büyük resim görünür)
+  const gameW = window.innerWidth;
+  const gameH = window.innerHeight;
+
+  const engine  = new PuzzleEngine(sourceCanvas, pieces, seed);
+  // Parça display boyutu: ekranın ~%70'ine tahta sığsın (başlangıç zoom fit)
+  const scaleX  = (gameW * 0.70) / (engine.cols * engine.pieceW);
+  const scaleY  = (gameH * 0.70) / (engine.rows * engine.pieceH);
+  const dispScale = Math.min(scaleX, scaleY, 0.8);
+
+  setLoading('Canvas oluşturuluyor…', 60);
+  await sleep(20);
+
+  // buildPieces'i batch'leyerek çalıştır (UI donmasını önle)
+  await engine.buildPiecesBatched(dispScale, (pct) => {
+    setLoading(`Parçalar kesiliyor… ${pct}%`, 60 + pct * 0.25);
+  });
+
+  setLoading('Parçalar dağıtılıyor…', 85);
+  await sleep(20);
+
+  // 3. Canvas kur
+  const canvas  = document.getElementById('game-canvas');
+  canvas.width  = gameW;
+  canvas.height = gameH;
+
+  if (gameCanvas) gameCanvas.stop();
+  gameCanvas = new GameCanvas(canvas, engine, {
+    snapThreshold: Math.max(10, engine.dispW * 0.12) * ('ontouchstart' in window || navigator.maxTouchPoints > 0 ? 1.8 : 1),
+    onProgress: (joined, total) => {
+      document.getElementById('progress-display').textContent = `${joined} / ${total} parça`;
+    },
+    onComplete: () => { onPuzzleComplete(); },
+  });
+
+  // Buton event'leri (her oyun başında yeniden bağla)
+  document.getElementById('btn-scatter').onclick = () => gameCanvas && gameCanvas.redistributePieces();
+  document.getElementById('btn-center').onclick  = () => gameCanvas && gameCanvas.centerBoard();
+
+  // Küçük preview görseli
+  drawPreview(sourceCanvas);
+
+  setLoading('Hazır!', 100);
+  await sleep(200);
+
+  // 4. Geçiş
+  document.getElementById('screen-loading').classList.remove('visible');
+  document.getElementById('screen-game').classList.add('visible');
+  gameCanvas.start();
+
+  // 5. Zamanlayıcı
+  startTime = Date.now();
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    document.getElementById('timer-display').textContent = formatTime(Date.now() - startTime);
+  }, 1000);
+}
+
+function drawPreview(src) {
+  const cv  = document.getElementById('preview-img');
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(src, 0, 0, 120, 120);
+  cv.style.display = 'block';
+}
+
+// ── TAMAMLAMA ──
+function onPuzzleComplete() {
+  clearInterval(timerInterval);
+  const elapsed = Date.now() - startTime;
+
+  document.getElementById('final-time').textContent = formatTime(elapsed);
+  document.getElementById('screen-complete').classList.add('visible');
+
+  // Confetti
+  launchConfetti();
+
+  // Oyun canvas'ı durdurma (görsel kalsın)
+}
+
+// ── YÜKLEME HELPERS ──
+function showLoading(status, pct) {
+  document.getElementById('screen-loading').classList.add('visible');
+  document.getElementById('loading-status').textContent = status;
+  document.getElementById('loading-bar').style.width = pct + '%';
+}
+function setLoading(status, pct) {
+  document.getElementById('loading-status').textContent = status;
+  document.getElementById('loading-bar').style.width = pct + '%';
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── ZAMANLAYICI ──
+function formatTime(ms) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  return `${String(m).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
+}
+
+// ── CONFETTİ ──
+function launchConfetti() {
+  const cv  = document.getElementById('confetti-canvas');
+  const ctx = cv.getContext('2d');
+  cv.width  = window.innerWidth;
+  cv.height = window.innerHeight;
+  cv.style.display = 'block';
+
+  const pieces = Array.from({length: 120}, () => ({
+    x:    Math.random() * cv.width,
+    y:    -20 - Math.random() * 200,
+    vx:   (Math.random() - 0.5) * 4,
+    vy:   2 + Math.random() * 4,
+    size: 6 + Math.random() * 8,
+    rot:  Math.random() * Math.PI * 2,
+    vr:   (Math.random() - 0.5) * 0.2,
+    color: ['#5c6bff','#a66fff','#3ddc84','#ffdd57','#ff6b6b','#fff'][Math.floor(Math.random()*6)],
+    dead: false,
+  }));
+
+  function tick() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    let alive = false;
+    for (const p of pieces) {
+      if (p.dead) continue;
+      p.x  += p.vx; p.y += p.vy; p.rot += p.vr; p.vy += 0.08;
+      if (p.y > cv.height + 20) { p.dead = true; continue; }
+      alive = true;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size/2, -p.size/4, p.size, p.size/2);
+      ctx.restore();
+    }
+    if (alive) confettiAF = requestAnimationFrame(tick);
+    else cv.style.display = 'none';
+  }
+  confettiAF = requestAnimationFrame(tick);
+}
+
+// Resize desteği
+window.addEventListener('resize', () => {
+  if (gameCanvas) {
+    const c = document.getElementById('game-canvas');
+    c.width  = window.innerWidth;
+    c.height = window.innerHeight;
+    gameCanvas.resize(c.width, c.height);
+  }
+});
+</script>
+</body>
+</html>

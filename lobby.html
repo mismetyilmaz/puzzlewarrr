@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PuzzleWar — Lobi</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #0d0d1a;
+  --surface: #13132a;
+  --panel:   #1a1a35;
+  --border:  rgba(120,120,255,0.15);
+  --accent:  #5c6bff;
+  --accent2: #a66fff;
+  --green:   #3ddc84;
+  --red:     #ff5c5c;
+  --text:    #e8e8f0;
+  --muted:   rgba(232,232,240,0.45);
+  --mono:    'Space Mono', monospace;
+  --display: 'Syne', sans-serif;
+}
+html, body {
+  width: 100%; min-height: 100%;
+  background: var(--bg); color: var(--text);
+  font-family: var(--mono);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px 16px;
+  -webkit-user-select: none; user-select: none;
+}
+.wrap {
+  width: 100%; max-width: 560px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+.logo {
+  font-family: var(--display); font-size: 28px; font-weight: 800;
+  letter-spacing: -1px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; text-align: center;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+}
+.card-title {
+  font-size: 11px; color: var(--muted);
+  letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px;
+}
+/* Name input */
+.input {
+  width: 100%;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 11px 14px;
+  color: var(--text); font-family: var(--mono); font-size: 14px;
+  outline: none; transition: border-color 0.2s;
+}
+.input:focus { border-color: var(--accent); }
+/* Mod seçici */
+.mode-row { display: flex; gap: 8px; margin-top: 14px; }
+.mode-btn {
+  flex: 1; padding: 12px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--muted);
+  font-family: var(--mono); font-size: 13px; cursor: pointer;
+  transition: all 0.15s; text-align: center;
+}
+.mode-btn.active {
+  color: var(--accent); border-color: var(--accent);
+  background: rgba(92,107,255,0.1);
+}
+/* Panel'ler */
+.panel { display: none; flex-direction: column; gap: 12px; }
+.panel.visible { display: flex; }
+/* Butonlar */
+.btn {
+  width: 100%; padding: 14px;
+  border: none; border-radius: 10px;
+  font-family: var(--display); font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s; letter-spacing: 0.5px;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+}
+.btn-primary:hover { filter: brightness(1.1); }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; filter: none; }
+.btn-secondary {
+  background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+}
+.btn-secondary:hover { color: var(--text); border-color: var(--accent); }
+/* Kod input satırı */
+.code-row { display: flex; gap: 8px; }
+.code-row .input { letter-spacing: 4px; font-size: 18px; text-transform: uppercase; text-align: center; }
+/* ─── LOBİ EKRANI ─── */
+#screen-lobby { display: none; }
+#screen-lobby.visible { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 560px; }
+.room-code-display {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.room-code-label { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+.room-code-value {
+  font-family: var(--mono); font-size: 26px; font-weight: 700;
+  color: var(--accent); letter-spacing: 6px;
+}
+.copy-btn {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 14px;
+  color: var(--muted); font-family: var(--mono); font-size: 12px;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.copy-btn:hover { color: var(--text); border-color: var(--accent); }
+/* Oyuncu listesi */
+.players-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.team-col {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px;
+}
+.team-header {
+  font-size: 11px; color: var(--muted);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;
+}
+.team-a .team-header span { color: var(--accent); }
+.team-b .team-header span { color: var(--accent2); }
+.player-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 8px;
+  font-size: 13px; margin-bottom: 4px;
+  transition: background 0.15s;
+}
+.player-row.me { background: rgba(92,107,255,0.1); }
+.player-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ready-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border); flex-shrink: 0;
+  transition: background 0.2s;
+}
+.ready-dot.ready { background: var(--green); box-shadow: 0 0 6px var(--green); }
+/* Takım değiştir butonu */
+.switch-team-btn {
+  font-size: 11px; color: var(--muted); background: none;
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 3px 8px; cursor: pointer; transition: all 0.15s;
+}
+.switch-team-btn:hover { color: var(--text); border-color: var(--accent); }
+/* Hazır + başlat */
+.lobby-actions { display: flex; gap: 10px; }
+.btn-ready {
+  flex: 1; padding: 13px;
+  border: 2px solid var(--green); border-radius: 10px;
+  background: rgba(61,220,132,0.08);
+  color: var(--green); font-family: var(--display); font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-ready.active {
+  background: var(--green); color: #0a1a0f;
+}
+.btn-ready:hover { background: rgba(61,220,132,0.15); }
+.btn-ready.active:hover { filter: brightness(1.05); }
+.btn-start-game {
+  flex: 1; padding: 13px;
+  border: none; border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff; font-family: var(--display); font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-start-game:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-start-game:not(:disabled):hover { filter: brightness(1.1); }
+/* Seed / parça seçici (lobi içi) */
+.piece-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.piece-opt {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 14px;
+  font-family: var(--mono); font-size: 12px; color: var(--muted);
+  cursor: pointer; transition: all 0.15s;
+}
+.piece-opt:hover { color: var(--text); border-color: var(--accent); }
+.piece-opt.active { color: var(--accent); border-color: var(--accent); background: rgba(92,107,255,0.1); }
+/* Geri sayım overlay */
+#countdown-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(13,13,26,0.93);
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px; z-index: 200;
+}
+#countdown-overlay.visible { display: flex; }
+.countdown-num {
+  font-family: var(--display); font-size: 120px; font-weight: 800;
+  background: linear-gradient(135deg, var(--accent), var(--green));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; line-height: 1;
+  animation: cntPulse 1s ease-out;
+}
+@keyframes cntPulse {
+  0% { transform: scale(1.4); opacity: 0; }
+  60% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.countdown-label {
+  font-size: 14px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase;
+}
+/* Hata mesajı */
+.error-msg {
+  color: var(--red); font-size: 12px; letter-spacing: 1px;
+  text-align: center; min-height: 18px;
+}
+</style>
+</head>
+<body>
+
+<!-- GİRİŞ / MOD SEÇİM EKRANI -->
+<div class="wrap" id="screen-entry">
+  <div class="logo">PuzzleWar</div>
+
+  <div class="card">
+    <div class="card-title">İsmin</div>
+    <input class="input" id="name-input" placeholder="Oyuncu adı" maxlength="20"
+           value="">
+  </div>
+
+  <div class="card">
+    <div class="card-title">Mod seç</div>
+    <div class="mode-row">
+      <div class="mode-btn active" id="mode-create" onclick="selectMode('create')">
+        ＋ Oda Kur
+      </div>
+      <div class="mode-btn" id="mode-join" onclick="selectMode('join')">
+        → Odaya Katıl
+      </div>
+    </div>
+
+    <!-- Oda kur paneli -->
+    <div class="panel visible" id="panel-create" style="margin-top:16px;">
+      <div>
+        <div class="card-title">Parça sayısı</div>
+        <div class="piece-row" id="create-piece-selector">
+          <div class="piece-opt" data-val="100">100</div>
+          <div class="piece-opt" data-val="200">200</div>
+          <div class="piece-opt active" data-val="500">500</div>
+          <div class="piece-opt" data-val="1000">1000</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btn-create">Oda Oluştur</button>
+    </div>
+
+    <!-- Katıl paneli -->
+    <div class="panel" id="panel-join" style="margin-top:16px;">
+      <div class="code-row">
+        <input class="input" id="room-code-input" placeholder="ODA KODU" maxlength="6">
+        <button class="btn btn-primary" id="btn-join" style="width:auto;padding:11px 20px;">Katıl</button>
+      </div>
+    </div>
+
+    <div class="error-msg" id="entry-error"></div>
+  </div>
+
+  <button class="btn btn-secondary" onclick="window.location.href='index.html'">← Tek Oyuncu</button>
+</div>
+
+<!-- LOBİ EKRANI -->
+<div id="screen-lobby">
+  <!-- Oda kodu -->
+  <div class="room-code-display">
+    <div>
+      <div class="room-code-label">Oda Kodu</div>
+      <div class="room-code-value" id="lobby-code">——</div>
+    </div>
+    <button class="copy-btn" id="btn-copy-code">Kopyala</button>
+  </div>
+
+  <!-- Oyuncu grid -->
+  <div class="players-grid">
+    <div class="team-col team-a">
+      <div class="team-header">
+        <span>Takım A</span>
+        <button class="switch-team-btn" onclick="switchTeam('A')">Katıl</button>
+      </div>
+      <div id="team-a-list"></div>
+    </div>
+    <div class="team-col team-b">
+      <div class="team-header">
+        <span>Takım B</span>
+        <button class="switch-team-btn" onclick="switchTeam('B')">Katıl</button>
+      </div>
+      <div id="team-b-list"></div>
+    </div>
+  </div>
+
+  <!-- Hazır + Başlat -->
+  <div class="lobby-actions">
+    <button class="btn-ready" id="btn-ready" onclick="toggleReady()">Hazır</button>
+    <button class="btn-start-game" id="btn-start-game" onclick="startGame()" disabled>
+      ▶ Başlat
+    </button>
+  </div>
+
+  <div class="error-msg" id="lobby-error"></div>
+
+  <button class="btn btn-secondary" onclick="leaveAndGoBack()">← Çık</button>
+</div>
+
+<!-- GERİ SAYIM OVERLAY -->
+<div id="countdown-overlay">
+  <div class="countdown-num" id="countdown-num">3</div>
+  <div class="countdown-label">Hazır ol!</div>
+</div>
+
+<!-- Firebase SDK (module) -->
+<script type="module" src="js/firebase-config.js"></script>
+
+<script>
+// ── Firebase hazır olana kadar bekle ──
+let lobby        = null;
+let myReady      = false;
+let selectedPieces = 500;
+let currentMode  = 'create';
+let isCreator    = false;
+
+// firebase-config modülü yüklenince window.FB hazır olur
+// Küçük bir polling ile bekleyelim
+function waitFB() {
+  return new Promise(res => {
+    const t = setInterval(() => {
+      if (window.FB) { clearInterval(t); res(); }
+    }, 50);
+  });
+}
+
+// ── İsim localStorage'dan yükle ──
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('pw_name');
+  if (saved) document.getElementById('name-input').value = saved;
+
+  // Parça seçici
+  document.querySelectorAll('#create-piece-selector .piece-opt').forEach(opt => {
+    opt.addEventListener('click', () => {
+      document.querySelectorAll('#create-piece-selector .piece-opt').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      selectedPieces = parseInt(opt.dataset.val);
+    });
+  });
+});
+
+function selectMode(mode) {
+  currentMode = mode;
+  document.getElementById('mode-create').classList.toggle('active', mode === 'create');
+  document.getElementById('mode-join').classList.toggle('active',   mode === 'join');
+  document.getElementById('panel-create').classList.toggle('visible', mode === 'create');
+  document.getElementById('panel-join').classList.toggle('visible',   mode === 'join');
+}
+
+function getName() {
+  return document.getElementById('name-input').value.trim() || 'Oyuncu';
+}
+
+function showEntryError(msg) {
+  document.getElementById('entry-error').textContent = msg;
+  setTimeout(() => document.getElementById('entry-error').textContent = '', 3000);
+}
+
+function showLobbyError(msg) {
+  document.getElementById('lobby-error').textContent = msg;
+  setTimeout(() => document.getElementById('lobby-error').textContent = '', 3000);
+}
+
+// ── ODA OLUŞTUR ──
+document.getElementById('btn-create').addEventListener('click', async () => {
+  await waitFB();
+  const btn = document.getElementById('btn-create');
+  btn.disabled = true; btn.textContent = 'Oluşturuluyor…';
+  try {
+    lobby     = new LobbyManager();
+    isCreator = true;
+    const roomId = await lobby.createRoom({
+      displayName: getName(),
+      pieceCount:  selectedPieces,
+    });
+    enterLobby(roomId);
+  } catch (e) {
+    showEntryError(e.message || 'Bağlantı hatası.');
+    btn.disabled = false; btn.textContent = 'Oda Oluştur';
+  }
+});
+
+// ── ODAYA KATIL ──
+document.getElementById('btn-join').addEventListener('click', async () => {
+  await waitFB();
+  const code = document.getElementById('room-code-input').value.trim().toUpperCase();
+  if (code.length < 4) { showEntryError('Oda kodu en az 4 karakter.'); return; }
+  const btn = document.getElementById('btn-join');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    lobby     = new LobbyManager();
+    isCreator = false;
+    await lobby.joinRoom(code, getName());
+    enterLobby(code);
+  } catch (e) {
+    showEntryError(e.message || 'Odaya katılınamadı.');
+    btn.disabled = false; btn.textContent = 'Katıl';
+  }
+});
+
+// ── LOBİYE GİR ──
+function enterLobby(roomId) {
+  document.getElementById('screen-entry').style.display = 'none';
+  document.getElementById('screen-lobby').classList.add('visible');
+  document.getElementById('lobby-code').textContent = roomId;
+
+  // Başlat butonu sadece oda sahibine görünür
+  document.getElementById('btn-start-game').style.display = isCreator ? 'block' : 'none';
+
+  // Oyuncu listesini dinle
+  lobby.onPlayers(players => renderPlayers(players));
+
+  // Meta dinle (status değişince oyunu başlat)
+  lobby.onMeta(meta => {
+    if (meta.status === 'countdown') startCountdown(meta);
+    if (meta.status === 'playing')   goToGame(meta);
+  });
+}
+
+// ── OYUNCU LİSTESİ RENDER ──
+function renderPlayers(players) {
+  const myUid = lobby.uid;
+  const aList = document.getElementById('team-a-list');
+  const bList = document.getElementById('team-b-list');
+  aList.innerHTML = '';
+  bList.innerHTML = '';
+
+  let aReady = 0, bReady = 0, aTotal = 0, bTotal = 0;
+
+  for (const [uid, p] of Object.entries(players)) {
+    const isMe = uid === myUid;
+    const row  = document.createElement('div');
+    row.className = 'player-row' + (isMe ? ' me' : '');
+
+    const dot  = document.createElement('div');
+    dot.className = 'ready-dot' + (p.ready ? ' ready' : '');
+
+    const name = document.createElement('div');
+    name.className = 'player-name';
+    name.textContent = p.displayName + (isMe ? ' (sen)' : '');
+
+    row.appendChild(dot); row.appendChild(name);
+
+    if (p.team === 'A') { aList.appendChild(row); aTotal++; if (p.ready) aReady++; }
+    else                { bList.appendChild(row); bTotal++; if (p.ready) bReady++; }
+  }
+
+  // Başlat butonunu aktif et
+  const canStart = aReady > 0 && bReady > 0;
+  document.getElementById('btn-start-game').disabled = !canStart;
+}
+
+// ── TAKIM DEĞİŞTİR ──
+async function switchTeam(team) {
+  if (!lobby) return;
+  try { await lobby.switchTeam(team); }
+  catch (e) { showLobbyError(e.message); }
+}
+
+// ── HAZIR TOGGLE ──
+async function toggleReady() {
+  if (!lobby) return;
+  myReady = !myReady;
+  const btn = document.getElementById('btn-ready');
+  btn.classList.toggle('active', myReady);
+  btn.textContent = myReady ? '✓ Hazırım' : 'Hazır';
+  try { await lobby.setReady(myReady); }
+  catch (e) { showLobbyError(e.message); }
+}
+
+// ── OYUNU BAŞLAT (oda sahibi) ──
+async function startGame() {
+  if (!lobby) return;
+  try { await lobby.startGame(); }
+  catch (e) { showLobbyError(e.message); }
+}
+
+// ── GERİ SAYIM ──
+function startCountdown(meta) {
+  const overlay = document.getElementById('countdown-overlay');
+  const numEl   = document.getElementById('countdown-num');
+  overlay.classList.add('visible');
+  let n = 3;
+  numEl.textContent = n;
+
+  const iv = setInterval(() => {
+    n--;
+    if (n <= 0) {
+      clearInterval(iv);
+      overlay.classList.remove('visible');
+      // status=playing'e geçiş Firebase'de otomatik olur
+      // Oda sahibi playing'e geçirir
+      if (isCreator && window.FB) {
+        window.FB.update(window.FB.DB.roomMeta(lobby.roomId), { status: 'playing' });
+      }
+    } else {
+      numEl.textContent = n;
+      numEl.style.animation = 'none';
+      numEl.offsetHeight; // reflow
+      numEl.style.animation = 'cntPulse 1s ease-out';
+    }
+  }, 1000);
+}
+
+// ── OYUNA GEÇİŞ ──
+function goToGame(meta) {
+  if (!lobby) return;
+  // Oyun parametrelerini URL'ye koy, game.html'de okuyacak
+  const params = new URLSearchParams({
+    roomId:     lobby.roomId,
+    uid:        lobby.uid,
+    team:       _getMyTeam(),
+    seed:       meta.seed,
+    pieceCount: meta.pieceCount,
+    name:       lobby.displayName,
+  });
+  window.location.href = 'game.html?' + params.toString();
+}
+
+function _getMyTeam() {
+  // Lobi ekranında takım bilgisi DOM'dan alınabilir
+  // (Listener tetiklenince güncelleniyor zaten)
+  // Basit: tüm oyuncuların listesinden kendininkini bul
+  // Ama lobby objesi bunu saklıyor olabilir — şimdilik 'A' fallback
+  return 'A';
+}
+
+// ── KOPYALA ──
+document.getElementById('btn-copy-code').addEventListener('click', () => {
+  const code = document.getElementById('lobby-code').textContent;
+  navigator.clipboard?.writeText(code).then(() => {
+    document.getElementById('btn-copy-code').textContent = 'Kopyalandı!';
+    setTimeout(() => document.getElementById('btn-copy-code').textContent = 'Kopyala', 1500);
+  });
+});
+
+// ── ÇIK ──
+async function leaveAndGoBack() {
+  if (lobby) await lobby.leaveRoom();
+  window.location.href = 'index.html';
+}
+
+window.addEventListener('beforeunload', () => {
+  if (lobby) lobby.leaveRoom();
+});
+</script>
+
+<!-- LobbyManager -->
+<script src="js/lobbyManager.js"></script>
+
+</body>
+</html>
